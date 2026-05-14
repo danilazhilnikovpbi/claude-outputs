@@ -1,0 +1,333 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.report { max-width: 860px; padding: 1.5rem 0; }
+.header { margin-bottom: 1.5rem; }
+.header h1 { font-size: 15px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.02em; }
+.header h2 { font-size: 22px; font-weight: 500; color: var(--color-text-primary); margin-top: 2px; }
+.section { margin-bottom: 2rem; }
+.section-label { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 1rem; }
+.metric-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 14px; }
+.metric-card .label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-card .value { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.metric-card .sub { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.metric-card .delta { font-size: 12px; margin-top: 4px; font-weight: 500; }
+.delta-neg { color: var(--color-text-danger); }
+.delta-pos { color: var(--color-text-success); }
+.delta-warn { color: var(--color-text-warning); }
+.delta-neutral { color: var(--color-text-secondary); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font-weight: 500; font-size: 12px; color: var(--color-text-secondary); padding: 6px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.tbl td { padding: 7px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); vertical-align: top; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl th.num { text-align: right; }
+.highlight-row td { background: var(--color-background-info); color: var(--color-text-info); }
+.highlight-row td:first-child { border-radius: 4px 0 0 4px; }
+.highlight-row td:last-child { border-radius: 0 4px 4px 0; }
+.badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+.badge-red { background: var(--color-background-danger); color: var(--color-text-danger); }
+.badge-green { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-amber { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-blue { background: var(--color-background-info); color: var(--color-text-info); }
+.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.dot-red { background: var(--color-text-danger); }
+.dot-green { background: var(--color-text-success); }
+.dot-amber { background: var(--color-text-warning); }
+.tldr { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px; font-size: 14px; color: var(--color-text-primary); line-height: 1.6; margin-bottom: 1.5rem; }
+.tldr strong { font-weight: 500; }
+.drama-block { border-left: 2px solid var(--color-border-secondary); padding-left: 14px; margin-bottom: 1.25rem; }
+.drama-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 6px; }
+.drama-body { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; }
+.drama-body p { margin-bottom: 5px; }
+.notables { margin-top: 0.5rem; }
+.notable-item { font-size: 13px; color: var(--color-text-secondary); padding: 5px 0; border-bottom: 0.5px solid var(--color-border-tertiary); line-height: 1.5; }
+.notable-item:last-child { border-bottom: none; }
+.caveat { font-size: 12px; color: var(--color-text-tertiary); font-style: italic; margin-top: 8px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.card-box { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px 16px; }
+.seg-bar-wrap { margin: 8px 0; }
+.seg-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; width: 100%; }
+.seg-label-row { display: flex; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
+.seg-label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--color-text-secondary); }
+.seg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+</style>
+
+<div class="report">
+
+<div class="header">
+  <div class="header h1">[Online Secondary] | Weekly Updates</div>
+  <div class="header h2">Apr 7 – Apr 13, 2026 &nbsp;<span class="badge badge-amber">partial week</span></div>
+</div>
+
+<div class="section">
+  <div class="section-label">Dashboard</div>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="label">Revenue</div>
+      <div class="value">$26.1K</div>
+      <div class="sub">IDR 444M</div>
+      <div class="delta delta-neg">-34.7% WoW</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">AOV</div>
+      <div class="value">$216</div>
+      <div class="sub">IDR 3,672K</div>
+      <div class="delta delta-pos">+12.9% WoW</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Sales</div>
+      <div class="value">121</div>
+      <div class="sub">120 unique students</div>
+      <div class="delta delta-neg">-42.1% WoW</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Expected Students</div>
+      <div class="value">109</div>
+      <div class="sub">pipeline this week</div>
+      <div class="delta delta-neg">-76% vs prior wk</div>
+    </div>
+  </div>
+
+  <div class="metric-grid" style="grid-template-columns: repeat(3, minmax(0,1fr));">
+    <div class="metric-card">
+      <div class="label">Prol. rate (directional)</div>
+      <div class="value">48.6%</div>
+      <div class="sub">53 / 109 expected</div>
+      <div class="delta delta-pos">+5.3pp WoW</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">April pace vs March</div>
+      <div class="value">103.4%</div>
+      <div class="sub">projected $133K vs $129K</div>
+      <div class="delta delta-pos">on track</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Median check</div>
+      <div class="value">$182</div>
+      <div class="sub">IDR 3,104K</div>
+      <div class="delta delta-pos">+24.2% WoW</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-label">Funnel Table</div>
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th class="num">W0 Apr 7–13</th>
+        <th class="num">W-1 Mar 31–Apr 6</th>
+        <th class="num">WoW &Delta;</th>
+        <th class="num">WoW %</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Revenue (USD)</td><td class="num">$26,139</td><td class="num">$40,000</td><td class="num">-$13,861</td><td class="num">-34.7%</td><td><span class="status-dot dot-red"></span><span class="badge badge-red">below</span></td></tr>
+      <tr><td>Transactions</td><td class="num">121</td><td class="num">209</td><td class="num">-88</td><td class="num">-42.1%</td><td><span class="status-dot dot-red"></span><span class="badge badge-red">below</span></td></tr>
+      <tr><td>Unique students</td><td class="num">120</td><td class="num">207</td><td class="num">-87</td><td class="num">-42.0%</td><td><span class="status-dot dot-red"></span></td></tr>
+      <tr><td>AOV (USD)</td><td class="num">$216</td><td class="num">$191</td><td class="num">+$25</td><td class="num">+12.9%</td><td><span class="status-dot dot-green"></span><span class="badge badge-green">above</span></td></tr>
+      <tr><td>Median check (USD)</td><td class="num">$182</td><td class="num">$147</td><td class="num">+$35</td><td class="num">+24.2%</td><td><span class="status-dot dot-green"></span></td></tr>
+      <tr><td>Expected students (pipeline)</td><td class="num">109</td><td class="num">453</td><td class="num">-344</td><td class="num">-76.0%</td><td><span class="status-dot dot-amber"></span><span class="badge badge-amber">context</span></td></tr>
+      <tr><td>Prol. rate (directional)</td><td class="num">48.6%</td><td class="num">43.3%</td><td class="num">+5.3pp</td><td class="num">—</td><td><span class="status-dot dot-green"></span></td></tr>
+      <tr><td>2nd purchase share</td><td class="num">49.6%</td><td class="num">40.2%</td><td class="num">+9.4pp</td><td class="num">—</td><td><span class="status-dot dot-amber"></span></td></tr>
+      <tr><td>3+ purchase share</td><td class="num">50.4%</td><td class="num">59.8%</td><td class="num">-9.4pp</td><td class="num">—</td><td><span class="status-dot dot-amber"></span></td></tr>
+      <tr class="highlight-row"><td>Pkg 10 share</td><td class="num">17.4%</td><td class="num">27.3%</td><td class="num">-9.9pp</td><td class="num">—</td><td><span class="badge badge-blue">watch</span></td></tr>
+    </tbody>
+  </table>
+  <p class="caveat">Note: Apr 13 data may be partial — report generated same day. Prior week (Mar 31–Apr 6) includes end-of-month spike (Apr 6 alone: 28 txns, $5,700) which artificially raises the base.</p>
+</div>
+
+<div class="section">
+  <div class="tldr">
+    <strong>TL;DR:</strong> Volume dropped sharply (-42%) WoW, but April is running 3% ahead of March's full-month pace ($133K projected vs $129K actual). The week's revenue story is almost entirely about the end-of-month spike in W-1 — week W0 is a structurally weak mid-week read against an inflated base. The only real signal: AOV surged +13% driven by a mix shift toward larger packages (pkg 20 and 40 replaced pkg 10), and the 3+ loyal base shrank in absolute terms (-64 transactions).
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-label">Drama 1 — Volume drop (-42% WoW)</div>
+  <div class="drama-block">
+    <div class="drama-title">Transaction volume: 121 vs 209 prior week (-88 txns, -42%)</div>
+    <div class="drama-body">
+      <p>Prior week (Mar 31–Apr 6) contained the end-of-month surge: Apr 1–6 averaged 23 txns/day, with Apr 5–6 delivering 52 combined transactions. This is a recurring payment-cycle pattern (end-of-month spikes 30–50%), not a genuine growth signal in W-1.</p>
+      <p>Apr 7–12 (current week so far) averages 20 txns/day — within normal mid-week range (20–25 expected). The volume drop is largely a comparison artifact, not a structural issue.</p>
+      <p>3+ loyals: absolute count dropped from 125 → 61 (-64). This is the most concerning sub-signal — loyal repeat buyers are down in absolute terms, not just as a share. Need to watch whether this continues in Apr 14–20 or normalizes.</p>
+      <p>2nd purchase count: 84 → 60 (-24). Proportional share rose (40% → 50%) purely because 3+ dropped more. No evidence of new student wave entering the pipeline this week specifically.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-label">Drama 2 — AOV spike +12.9% WoW</div>
+  <div class="drama-block">
+    <div class="drama-title">AOV: $216 vs $191 prior week (+$25, +12.9%)</div>
+    <div class="drama-body">
+      <p>Driven by a clear package mix shift away from pkg 10 and toward pkg 20 and 40. Pkg 10 share fell from 27.3% → 17.4% (-9.9pp), while pkg 20 rose from 12.9% → 19.8% (+6.9pp) and pkg 40 rose from 10.5% → 16.5% (+6.0pp).</p>
+      <p>Additionally, 5 large-package renewals (80/120 lessons) landed this week (vs 4 prior week), contributing disproportionate revenue ($2,808 from 5 txns = avg $562 each).</p>
+      <p>AOV for standard packages themselves is stable: pkg 10 AOV IDR 1.77M (vs IDR 1.81M prior), pkg 40 IDR 6.13M (vs 5.83M). The spike is mix-driven, not price-driven.</p>
+      <p>Primary context: pkg 10 is dominant in primary sales at ~45% share (Mar 2026). Secondary pkg 10 share peaking at 27% in W-1 was likely transient; 17% in W0 may reflect more typical secondary mix as pkg 20/40 primary cohorts from Nov–Dec 2025 enter their renewal window.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-label">Prolongation segments</div>
+  <div class="two-col">
+    <div class="card-box">
+      <div style="font-size: 13px; font-weight: 500; margin-bottom: 10px; color: var(--color-text-primary);">W0: Apr 7–13 (130 tracked renewals)</div>
+      <div class="seg-bar-wrap">
+        <div class="seg-bar">
+          <div style="width: 40.8%; background: #185FA5;"></div>
+          <div style="width: 45.4%; background: #1D9E75;"></div>
+          <div style="width: 10.0%; background: #D85A30;"></div>
+          <div style="width: 3.8%; background: #BA7517;"></div>
+        </div>
+        <div class="seg-label-row">
+          <div class="seg-label"><div class="seg-dot" style="background:#185FA5;"></div>Present 40.8%</div>
+          <div class="seg-label"><div class="seg-dot" style="background:#1D9E75;"></div>Earlier 45.4%</div>
+          <div class="seg-label"><div class="seg-dot" style="background:#D85A30;"></div>Reanim. 10.0%</div>
+          <div class="seg-label"><div class="seg-dot" style="background:#BA7517;"></div>Upgrades 3.8%</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-box">
+      <div style="font-size: 13px; font-weight: 500; margin-bottom: 10px; color: var(--color-text-primary);">W-1: Mar 31–Apr 6 (193 tracked renewals)</div>
+      <div class="seg-bar-wrap">
+        <div class="seg-bar">
+          <div style="width: 25.9%; background: #185FA5;"></div>
+          <div style="width: 54.9%; background: #1D9E75;"></div>
+          <div style="width: 15.5%; background: #D85A30;"></div>
+          <div style="width: 3.6%; background: #BA7517;"></div>
+        </div>
+        <div class="seg-label-row">
+          <div class="seg-label"><div class="seg-dot" style="background:#185FA5;"></div>Present 25.9%</div>
+          <div class="seg-label"><div class="seg-dot" style="background:#1D9E75;"></div>Earlier 54.9%</div>
+          <div class="seg-label"><div class="seg-dot" style="background:#D85A30;"></div>Reanim. 15.5%</div>
+          <div class="seg-label"><div class="seg-dot" style="background:#BA7517;"></div>Upgrades 3.6%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caveat" style="margin-top: 8px;">W0 shows a healthier segment mix: Present Base recovering (+14.9pp) and Reanimation declining (-5.5pp). Earlier Base slightly lower but still dominant at 45.4%. Combined Present+Earlier = 86.2% — healthy range per benchmarks (&ge;85%).</p>
+</div>
+
+<div class="section">
+  <div class="section-label">Package distribution</div>
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Package</th>
+        <th class="num">W0 count</th>
+        <th class="num">W0 share</th>
+        <th class="num">W-1 share</th>
+        <th class="num">&Delta; pp</th>
+        <th class="num">W0 AOV (IDR)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>8 lessons</td><td class="num">9</td><td class="num">7.4%</td><td class="num">11.5%</td><td class="num delta-neg">-4.1pp</td><td class="num">1,050K</td></tr>
+      <tr class="highlight-row"><td>10 lessons</td><td class="num">21</td><td class="num">17.4%</td><td class="num">27.3%</td><td class="num">-9.9pp</td><td class="num">1,770K</td></tr>
+      <tr><td>16 lessons</td><td class="num">6</td><td class="num">5.0%</td><td class="num">2.4%</td><td class="num delta-pos">+2.6pp</td><td class="num">2,681K</td></tr>
+      <tr><td>20 lessons</td><td class="num">24</td><td class="num">19.8%</td><td class="num">12.9%</td><td class="num delta-pos">+6.9pp</td><td class="num">3,485K</td></tr>
+      <tr><td>32 lessons</td><td class="num">6</td><td class="num">5.0%</td><td class="num">2.9%</td><td class="num delta-pos">+2.1pp</td><td class="num">4,448K</td></tr>
+      <tr><td>40 lessons</td><td class="num">20</td><td class="num">16.5%</td><td class="num">10.5%</td><td class="num delta-pos">+6.0pp</td><td class="num">6,133K</td></tr>
+      <tr><td>Other (non-standard)</td><td class="num">34</td><td class="num">28.1%</td><td class="num">31.6%</td><td class="num delta-neg">-3.5pp</td><td class="num">4,295K</td></tr>
+    </tbody>
+  </table>
+  <p class="caveat">Pkg 10 share dip to 17.4% is a weekly fluctuation — monthly trend is still strongly upward (12% Oct → 27% Mar). Not a signal reversal.</p>
+</div>
+
+<div class="section">
+  <div class="section-label">Top courses — current week (secondary)</div>
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Course</th>
+        <th class="num">Txns</th>
+        <th class="num">Share</th>
+        <th class="num">Revenue (USD)</th>
+        <th class="num">AOV (IDR)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Visual Programming IND</td><td class="num">18</td><td class="num">14.9%</td><td class="num">$3,258</td><td class="num">3,077K</td></tr>
+      <tr><td>Math Tutoring</td><td class="num">17</td><td class="num">14.0%</td><td class="num">$4,463</td><td class="num">4,463K</td></tr>
+      <tr><td>Python Start+Pro IND</td><td class="num">16</td><td class="num">13.2%</td><td class="num">$3,679</td><td class="num">3,909K</td></tr>
+      <tr><td>Game Design ID</td><td class="num">9</td><td class="num">7.4%</td><td class="num">$2,325</td><td class="num">4,391K</td></tr>
+      <tr><td>Literasi Digital 2.0</td><td class="num">7</td><td class="num">5.8%</td><td class="num">$1,405</td><td class="num">3,411K</td></tr>
+      <tr><td>Graphic Design Junior IND</td><td class="num">6</td><td class="num">5.0%</td><td class="num">$1,298</td><td class="num">3,677K</td></tr>
+      <tr><td>Matematika Senior</td><td class="num">6</td><td class="num">5.0%</td><td class="num">$1,034</td><td class="num">2,930K</td></tr>
+      <tr><td>Game Design 2.0 IND</td><td class="num">5</td><td class="num">4.1%</td><td class="num">$1,375</td><td class="num">4,674K</td></tr>
+    </tbody>
+  </table>
+  <p class="caveat">Top 3 courses (VP IND, Math Tutoring, Python) = 42.1% of weekly transactions — normal concentration level (&lt;45%). Math Tutoring at #2 by revenue despite having no large-package renewals — high AOV driven by pkg 20+ mix.</p>
+</div>
+
+<div class="section">
+  <div class="section-label">Prolongation rate — monthly (mature)</div>
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Month (planned)</th>
+        <th class="num">Expected</th>
+        <th class="num">Renewed</th>
+        <th class="num">Rate</th>
+        <th>Maturity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Oct 2025</td><td class="num">1,871</td><td class="num">924</td><td class="num">49.4%</td><td><span class="badge badge-green">mature</span></td></tr>
+      <tr><td>Nov 2025</td><td class="num">2,019</td><td class="num">970</td><td class="num">48.0%</td><td><span class="badge badge-green">mature</span></td></tr>
+      <tr><td>Dec 2025</td><td class="num">1,801</td><td class="num">881</td><td class="num">48.9%</td><td><span class="badge badge-green">mature</span></td></tr>
+      <tr><td>Jan 2026</td><td class="num">1,884</td><td class="num">939</td><td class="num">49.8%</td><td><span class="badge badge-green">mature</span></td></tr>
+      <tr><td>Feb 2026</td><td class="num">1,480</td><td class="num">785</td><td class="num">53.0%</td><td><span class="badge badge-green">mature</span></td></tr>
+      <tr><td>Mar 2026</td><td class="num">1,387</td><td class="num">704</td><td class="num">50.8%</td><td><span class="badge badge-amber">maturing</span></td></tr>
+      <tr><td>Apr 2026</td><td class="num">1,513</td><td class="num">559</td><td class="num">36.9%</td><td><span class="badge badge-red">immature</span></td></tr>
+      <tr><td>May 2026</td><td class="num">1,922</td><td class="num">437</td><td class="num">22.7%</td><td><span class="badge badge-red">immature</span></td></tr>
+    </tbody>
+  </table>
+  <p class="caveat">Mature rate (up to Feb 2026): stable range 48–53%. Feb 2026 at 53.0% is the highest in the observed window — positive signal. Mar rate (50.8%) will continue to mature and likely reach 52–54%. Apr and May rates are not yet meaningful.</p>
+</div>
+
+<div class="section">
+  <div class="section-label">Primary context</div>
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th class="num">Primary txns</th>
+        <th class="num">Revenue (USD)</th>
+        <th class="num">AOV (IDR)</th>
+        <th class="num">Pkg 10 share</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Aug 2025</td><td class="num">1,550</td><td class="num">$336K</td><td class="num">3,690K</td><td class="num">37.0%</td></tr>
+      <tr><td>Sep 2025</td><td class="num">1,379</td><td class="num">$294K</td><td class="num">3,627K</td><td class="num">40.7%</td></tr>
+      <tr><td>Oct 2025</td><td class="num">1,566</td><td class="num">$355K</td><td class="num">3,850K</td><td class="num">42.8%</td></tr>
+      <tr><td>Nov 2025</td><td class="num">1,680</td><td class="num">$368K</td><td class="num">3,720K</td><td class="num">42.5%</td></tr>
+      <tr><td>Dec 2025</td><td class="num">1,516</td><td class="num">$365K</td><td class="num">4,088K</td><td class="num">39.4%</td></tr>
+      <tr><td>Jan 2026</td><td class="num">1,959</td><td class="num">$475K</td><td class="num">4,124K</td><td class="num">40.9%</td></tr>
+      <tr><td>Feb 2026</td><td class="num">1,343</td><td class="num">$347K</td><td class="num">4,395K</td><td class="num">42.8%</td></tr>
+      <tr class="highlight-row"><td>Mar 2026</td><td class="num">954</td><td class="num">$217K</td><td class="num">3,868K</td><td class="num">45.2%</td></tr>
+      <tr><td>Apr 2026 (MTD)</td><td class="num">571</td><td class="num">$142K</td><td class="num">4,218K</td><td class="num">47.1%</td></tr>
+    </tbody>
+  </table>
+  <p class="caveat">March 2026 primary: significant volume drop (-30% vs Feb, -43% vs Jan). This is a pipeline risk for secondary sales in June–July 2026. Secondary currently drawing from the strong Jan 2026 cohort (1,959 primary txns). AOV in primary is up (+9% Jan→Apr), suggesting the quality/size mix is holding despite lower volume.</p>
+</div>
+
+<div class="section">
+  <div class="section-label">Notable observations</div>
+  <div class="notables">
+    <div class="notable-item">Pkg 10 share fell to 17.4% this week vs 27.3% prior week — weekly fluctuation, not a trend reversal. Monthly trajectory (Oct 12% → Mar 27%) remains intact. Expect normalization next week as Math Tutoring and Coding Knight students in 10-lesson packages cycle through.</div>
+    <div class="notable-item">March 2026 primary volume dropped to 954 transactions (-30% vs Feb). This is the lowest month since mid-2025. If this continues, secondary expected pipeline in June–July 2026 will contract. Monitor April primary closely — current MTD pace suggests April primary may land around 1,400–1,500 (improved vs March but below Jan levels).</div>
+    <div class="notable-item">Math Tutoring secondary share reached 14.0% of weekly transactions (up from ~9% monthly average in Feb–Mar). MT AOV this week is $4,463 — above overall average — suggesting MT students on this cycle are renewing into larger packages. MT prolongation rate (by course_name, mature data): 45% — below platform average of 52%, continues to be a structural gap to monitor.</div>
+    <div class="notable-item">3+ loyal base: 61 transactions this week vs 125 prior week (-51% absolute). Even adjusting for end-of-month spike in W-1, this is a sharp drop. If 3+ loyals average below 80 txns/week in Apr 14–20, it warrants deeper investigation by payment_no transition (which specific steps are weakening).</div>
+  </div>
+</div>
+
+</div>
