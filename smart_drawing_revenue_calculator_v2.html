@@ -1,0 +1,182 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:1.5rem 0;font-family:var(--font-sans);color:var(--color-text-primary)}
+.section{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1rem}
+.sec-title{font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:1rem;font-weight:500}
+.fixed-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.fixed-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px}
+.fixed-card .fl{font-size:11px;color:var(--color-text-secondary)}
+.fixed-card .fv{font-size:20px;font-weight:500;margin:3px 0;color:var(--color-text-primary)}
+.fixed-card .fn{font-size:11px;color:var(--color-text-secondary)}
+.badge-fixed{display:inline-block;font-size:10px;background:var(--color-background-warning);color:var(--color-text-warning);border-radius:4px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+.slider-row{margin-top:1rem;padding-top:1rem;border-top:0.5px solid var(--color-border-tertiary)}
+.slider-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.slider-lbl{font-size:14px;font-weight:500}
+.slider-val{font-size:26px;font-weight:500;color:#185FA5}
+input[type=range]{width:100%;margin:6px 0;accent-color:#185FA5}
+.ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.preset{padding:5px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);font-size:12px;cursor:pointer;color:var(--color-text-primary);transition:all .12s}
+.preset:hover{border-color:#185FA5;color:#185FA5}
+.preset.active{background:#185FA5;color:#fff;border-color:#185FA5}
+.results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1rem}
+.rc{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:14px;text-align:center}
+.rc .rl{font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.4px}
+.rc .rv{font-size:26px;font-weight:500;margin:5px 0}
+.rc .rn{font-size:11px;color:var(--color-text-secondary)}
+.rc-blue{border-color:#B5D4F4;background:#E6F1FB}.rc-blue .rv{color:#185FA5}
+.rc-green{border-color:#C0DD97;background:#EAF3DE}.rc-green .rv{color:#3B6D11}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-weight:500;color:var(--color-text-secondary);font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:6px 8px;border-bottom:0.5px solid var(--color-border-secondary)}
+td{padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+.num{text-align:right}
+.row-sel td{background:var(--color-background-info);font-weight:500}
+.good{color:#3B6D11;font-weight:500}
+.bad{color:#A32D2D;font-weight:500}
+.bw{display:inline-block;width:100px;height:6px;background:var(--color-border-tertiary);border-radius:3px;vertical-align:middle}
+.bf{height:100%;border-radius:3px}
+</style>
+<div class="wrap">
+<h2 class="sr-only">Smart Drawing — Revenue Calculator v2, L2A flexible, A2S fixed at 30.8%</h2>
+
+<div class="section">
+  <div class="sec-title">Параметры</div>
+  <div class="fixed-grid">
+    <div class="fixed-card">
+      <div class="fl">GD лиды / квартал</div>
+      <div class="fv">1,178</div>
+      <div class="fn">1 103 + 75 recovery</div>
+    </div>
+    <div class="fixed-card">
+      <div class="fl">A2S <span class="badge-fixed">фикс.</span></div>
+      <div class="fv">30.8%</div>
+      <div class="fn">факт. средний Design 6-8</div>
+    </div>
+    <div class="fixed-card">
+      <div class="fl">AOV <span class="badge-fixed">фикс.</span></div>
+      <div class="fv">$205</div>
+      <div class="fn">обновлённый стандарт</div>
+    </div>
+    <div class="fixed-card">
+      <div class="fl">Базовые продажи</div>
+      <div class="fv">59 / кв</div>
+      <div class="fn">текущий GD Junior 6-8</div>
+    </div>
+  </div>
+
+  <div class="slider-row">
+    <div class="slider-hd">
+      <span class="slider-lbl">L2A — Lead to Attended</span>
+      <span class="slider-val" id="l2a_disp">22%</span>
+    </div>
+    <input type="range" id="l2a" min="15" max="35" value="22" step="1" oninput="calc()">
+    <div class="ticks"><span>15%</span><span>18.8%</span><span>22%</span><span>23.6%</span><span>28%</span><span>35%</span></div>
+    <div class="presets">
+      <button class="preset" onclick="setL2A(15)">Пессимист 15%</button>
+      <button class="preset" onclick="setL2A(18)">Текущий GD 18.8%</button>
+      <button class="preset active" onclick="setL2A(22)">Таргет 22%</button>
+      <button class="preset" onclick="setL2A(24)">Бенчмарк Math 23.6%</button>
+      <button class="preset" onclick="setL2A(28)">Оптимист 28%</button>
+    </div>
+  </div>
+</div>
+
+<div class="results">
+  <div class="rc rc-blue">
+    <div class="rl">Продажи / квартал</div>
+    <div class="rv" id="r_sq">—</div>
+    <div class="rn" id="r_sq_n">vs baseline 59</div>
+  </div>
+  <div class="rc rc-green">
+    <div class="rl">Δ Выручка / год</div>
+    <div class="rv" id="r_dr">—</div>
+    <div class="rn">vs текущий GD Junior</div>
+  </div>
+  <div class="rc">
+    <div class="rl">Выручка / год</div>
+    <div class="rv" id="r_tr">—</div>
+    <div class="rn" id="r_tr_n">— продаж × $205</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-title">Воронка</div>
+  <table><thead><tr><th>Этап</th><th class="num">Значение</th><th class="num">Конверсия</th><th>Визуально</th></tr></thead>
+  <tbody id="waterfall"></tbody></table>
+</div>
+
+<div class="section">
+  <div class="sec-title">Сценарии по L2A (A2S = 30.8% фиксирован)</div>
+  <table><thead><tr><th>L2A</th><th class="num">Продаж / кв</th><th class="num">Продаж / год</th><th class="num">Выручка / год</th><th class="num">Δ продажи</th><th class="num">Δ выручка</th></tr></thead>
+  <tbody id="scenarios"></tbody></table>
+</div>
+</div>
+
+<script>
+const LEADS=1178,A2S=0.308,AOV=205,BASE=59;
+function fmt(n){return(n>=0?'+':'')+( Math.abs(n)>=1000?'$'+(n/1000).toFixed(1)+'K':'$'+Math.round(n));}
+function fmtAbs(n){return Math.abs(n)>=1000?'$'+(n/1000).toFixed(1)+'K':'$'+Math.round(Math.abs(n));}
+
+function calc(){
+  const l2a=parseInt(document.getElementById('l2a').value)/100;
+  document.getElementById('l2a_disp').textContent=Math.round(l2a*100)+'%';
+  const att=Math.round(LEADS*l2a);
+  const sq=Math.round(att*A2S);
+  const sy=sq*4;
+  const ry=sy*AOV;
+  const baseRy=BASE*4*AOV;
+  const ds=sq-BASE;
+  const dr=ry-baseRy;
+
+  document.getElementById('r_sq').textContent=sq;
+  document.getElementById('r_sq_n').textContent=(ds>=0?'+':'')+ds+' vs baseline 59';
+  document.getElementById('r_dr').textContent=(Math.abs(dr)>=1000?(dr>=0?'+':'-')+'$'+(Math.abs(dr)/1000).toFixed(1)+'K':(dr>=0?'+':'')+Math.round(dr));
+  document.getElementById('r_dr').style.color=dr>=0?'#3B6D11':'#A32D2D';
+  document.getElementById('r_tr').textContent='$'+(ry>=1000?(ry/1000).toFixed(1)+'K':Math.round(ry));
+  document.getElementById('r_tr_n').textContent=sy+' продаж × $205';
+
+  const wf=[
+    {n:'Лиды GD 6-8 (profiled + recovery)',v:LEADS,c:'—',p:1},
+    {n:'Attended MK (L2A '+Math.round(l2a*100)+'%)',v:att,c:Math.round(l2a*100)+'%',p:att/LEADS},
+    {n:'Продажи (A2S 30.8% фикс.)',v:sq,c:'30.8%',p:sq/att},
+    {n:'Выручка / квартал',v:'$'+Math.round(sq*AOV*1)/1..toLocaleString(),c:'×$205',p:0},
+  ];
+  let wh='';
+  wf.forEach(function(s,i){
+    const bw=i<3?Math.round(s.p*180):0;
+    const bc=i===2?'#185FA5':i===1?'#378ADD':'#94a3b8';
+    wh+='<tr><td>'+s.n+'</td><td class="num"><strong>'+(typeof s.v==='number'?s.v.toLocaleString():s.v)+'</strong></td><td class="num">'+s.c+'</td>';
+    wh+='<td>'+(bw>0?'<div class="bw"><div class="bf" style="width:'+bw+'px;background:'+bc+'"></div></div>':'')+'</td></tr>';
+  });
+  document.getElementById('waterfall').innerHTML=wh;
+
+  const levels=[15,18,20,22,24,26,28,30,35];
+  const cur=Math.round(l2a*100);
+  let sc='';
+  levels.forEach(function(a){
+    const att2=Math.round(LEADS*a/100);
+    const s=Math.round(att2*A2S);
+    const sy2=s*4;
+    const ry2=sy2*AOV;
+    const ds2=s-BASE;
+    const dr2=ry2-baseRy;
+    const sel=(a===cur)?' class="row-sel"':'';
+    sc+='<tr'+sel+'><td><strong>'+a+'%</strong>'+(a===22?' (таргет)':a===24?' (Math bench)':a===18?' (GD факт)':'')+'</td>';
+    sc+='<td class="num">'+s+'</td><td class="num">'+sy2+'</td>';
+    sc+='<td class="num">$'+(ry2>=1000?(ry2/1000).toFixed(1)+'K':Math.round(ry2))+'</td>';
+    sc+='<td class="num '+(ds2>=0?'good':'bad')+'">'+(ds2>=0?'+':'')+ds2+'</td>';
+    sc+='<td class="num '+(dr2>=0?'good':'bad')+'">'+(dr2>=0?'+':'-')+'$'+(Math.abs(dr2)>=1000?(Math.abs(dr2)/1000).toFixed(1)+'K':Math.round(Math.abs(dr2)))+'</td></tr>';
+  });
+  document.getElementById('scenarios').innerHTML=sc;
+
+  document.querySelectorAll('.preset').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.preset').forEach(function(b){
+    var pct=parseInt(b.textContent.match(/\d+/));
+    if(pct===Math.round(l2a*100))b.classList.add('active');
+  });
+}
+
+function setL2A(v){document.getElementById('l2a').value=v;calc();}
+calc();
+</script>
