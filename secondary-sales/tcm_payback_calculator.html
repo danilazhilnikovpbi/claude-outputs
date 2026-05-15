@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCM Payback Calculator — Latam</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1e293b;font-size:14px}
+.page{max-width:1400px;margin:0 auto;padding:24px 16px}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+.subtitle{color:#64748b;font-size:13px;margin-bottom:20px}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px}
+.kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:6px}
+.kpi-value{font-size:32px;font-weight:600;line-height:1;margin-bottom:4px}
+.kpi-sub{font-size:12px;color:#94a3b8}
+.kpi-green .kpi-value{color:#16a34a}
+.kpi-yellow .kpi-value{color:#d97706}
+.kpi-red .kpi-value{color:#dc2626}
+.kpi-neutral .kpi-value{color:#1e293b}
+
+/* Warning */
+.warn{background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:12px;display:none}
+.warn.show{display:block}
+
+/* Layout */
+.main-layout{display:grid;grid-template-columns:285px 1fr;gap:16px;align-items:start}
+.inputs-panel{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}
+.inp-sec{margin-bottom:14px}
+.inp-sec:last-child{margin-bottom:0}
+.inp-title{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;font-weight:600;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f1f5f9}
+.inp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.inp-lbl{font-size:12px;color:#475569;flex:1;margin-right:8px}
+.inp-f{width:78px;text-align:right;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;font-size:13px;font-family:inherit;color:#1e293b;background:#fff}
+.inp-f:focus{outline:none;border-color:#3b82f6}
+.inp-f.sm{width:60px}
+.inp-total{width:78px;text-align:right;font-size:13px;font-weight:600;color:#3b82f6;padding:4px 7px}
+
+/* Toggle */
+.tog-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.tog-lbl{font-size:12px;color:#475569}
+.toggle{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.sl{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#cbd5e1;border-radius:20px;transition:.2s}
+.sl:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+input:checked+.sl{background:#3b82f6}
+input:checked+.sl:before{transform:translateX(16px)}
+
+/* Horizon */
+.hz-row{margin-bottom:8px}
+.hz-lbl{display:flex;justify-content:space-between;font-size:12px;color:#475569;margin-bottom:5px}
+.hz-val{font-weight:600;color:#3b82f6}
+input[type=range]{width:100%;accent-color:#3b82f6}
+
+/* Ramp */
+.ramp-t{width:100%;border-collapse:collapse;font-size:12px}
+.ramp-t td{padding:2px 3px}
+.ramp-m{color:#94a3b8;font-size:11px;width:55px}
+.ramp-t input{width:58px;border:1px solid #e2e8f0;border-radius:4px;padding:3px 6px;font-size:12px;text-align:right;font-family:inherit;background:#fff}
+.ramp-t input:focus{outline:none;border-color:#3b82f6}
+
+/* Right */
+.right-panel{display:flex;flex-direction:column;gap:14px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px}
+.card-title{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;font-weight:600;margin-bottom:12px}
+.chart-wrap{height:220px;position:relative}
+
+/* P&L table */
+table.pnl{width:100%;border-collapse:collapse;font-size:12px}
+table.pnl th{text-align:right;font-weight:500;color:#94a3b8;font-size:10px;text-transform:uppercase;padding:6px 7px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+table.pnl th:first-child{text-align:left}
+table.pnl td{text-align:right;padding:5px 7px;border-bottom:1px solid #f8fafc;font-variant-numeric:tabular-nums}
+table.pnl td:first-child{text-align:left;font-weight:500}
+table.pnl tr.be{background:#f0fdf4}
+table.pnl tr.be td{border-bottom:2px solid #16a34a;border-top:2px solid #16a34a;font-weight:600}
+.neg{color:#dc2626}
+.pos{color:#16a34a}
+
+/* Sensitivity */
+.tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+.tab{padding:6px 13px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;cursor:pointer;background:#f8fafc;color:#64748b;transition:all .12s;font-family:inherit}
+.tab.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.mx-wrap{overflow-x:auto}
+table.mx{border-collapse:collapse;font-size:11px}
+table.mx th{padding:5px 10px;font-size:10px;font-weight:500;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;white-space:nowrap}
+table.mx td{padding:6px 10px;border:1px solid #e2e8f0;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;position:relative}
+table.mx td.cg{background:#dcfce7;color:#15803d;font-weight:600}
+table.mx td.cy{background:#fef9c3;color:#854d0e;font-weight:600}
+table.mx td.cr{background:#fee2e2;color:#991b1b;font-weight:600}
+table.mx td.cn{background:#f1f5f9;color:#94a3b8}
+table.mx td.ph{background:#bbf7d0;color:#14532d;font-weight:600}
+table.mx td.pm{background:#d1fae5;color:#065f46}
+table.mx td.pl{background:#f0fdf4;color:#166534}
+table.mx td.pn{background:#fee2e2;color:#991b1b;font-weight:600}
+table.mx td.p0{background:#f8fafc;color:#94a3b8}
+table.mx td.hl{outline:2px solid #3b82f6;outline-offset:-2px}
+
+/* Ref metrics */
+.ref-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ref-item{background:#f8fafc;border-radius:8px;padding:10px}
+.ref-lbl{font-size:11px;color:#64748b;margin-bottom:3px}
+.ref-val{font-size:17px;font-weight:600;color:#1e293b}
+
+/* Summary */
+.summary-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;font-size:13px;line-height:1.75;color:#0c4a6e;margin-bottom:12px}
+.summary-box strong{color:#0369a1}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:8px 15px;border-radius:7px;border:1px solid #e2e8f0;background:#fff;font-size:12px;cursor:pointer;color:#475569;font-family:inherit;transition:all .12s}
+.btn:hover{border-color:#3b82f6;color:#3b82f6}
+.assumptions{font-size:11px;color:#94a3b8;line-height:1.7;margin-top:12px;padding-left:16px}
+.assumptions li{margin-bottom:2px}
+
+@media(max-width:800px){
+  .main-layout{grid-template-columns:1fr}
+  .inputs-panel{position:static;max-height:none}
+  .kpi-row{grid-template-columns:1fr}
+  .ref-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>TCM Payback Calculator — Latam</h1>
+  <p class="subtitle">Unit economics найма Trial Class Manager · Algonova B2C · 2026</p>
+
+  <div class="kpi-row">
+    <div class="kpi" id="kpi-pb">
+      <div class="kpi-label">Окупаемость</div>
+      <div class="kpi-value" id="kv-pb">—</div>
+      <div class="kpi-sub">месяцев до break-even</div>
+    </div>
+    <div class="kpi" id="kpi-p6">
+      <div class="kpi-label">Профит за 6 мес</div>
+      <div class="kpi-value" id="kv-p6">—</div>
+      <div class="kpi-sub">кумулятивный, после hire cost</div>
+    </div>
+    <div class="kpi kpi-neutral">
+      <div class="kpi-label">Hire cost / ученик</div>
+      <div class="kpi-value" id="kv-hcps">—</div>
+      <div class="kpi-sub" id="kv-hcps-sub">за горизонт расчёта</div>
+    </div>
+  </div>
+
+  <div class="warn" id="warn">⚠️ Не окупается за горизонт расчёта. Увеличьте горизонт или измените параметры.</div>
+
+  <div class="main-layout">
+    <!-- Inputs -->
+    <div class="inputs-panel">
+      <div class="inp-sec">
+        <div class="inp-title">Найм и онбординг</div>
+        <div class="inp-row"><span class="inp-lbl">Поиск / найм</span><input class="inp-f" id="i-hs" type="number" value="300" min="0"></div>
+        <div class="inp-row"><span class="inp-lbl">Онбординг</span><input class="inp-f" id="i-ho" type="number" value="50" min="0"></div>
+        <div class="inp-row"><span class="inp-lbl" style="font-weight:600">Итого hire cost</span><span class="inp-total" id="i-ht">$350</span></div>
+      </div>
+
+      <div class="inp-sec">
+        <div class="inp-title">Производительность TCM</div>
+        <div class="inp-row"><span class="inp-lbl">Продаж / мес (макс.)</span><input class="inp-f" id="i-sf" type="number" value="6" min="1" max="50"></div>
+        <div class="inp-title" style="margin-top:10px">Рамп-профиль</div>
+        <table class="ramp-t">
+          <tr><td class="ramp-m">Мес 1</td><td><input id="r0" type="number" value="0" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 2</td><td><input id="r1" type="number" value="50" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 3</td><td><input id="r2" type="number" value="83" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 4+</td><td><input id="r3" type="number" value="100" min="0" max="200"> %</td></tr>
+        </table>
+      </div>
+
+      <div class="inp-sec">
+        <div class="inp-title">Первый пакет</div>
+        <div class="inp-row"><span class="inp-lbl">AOV первой покупки, $</span><input class="inp-f" id="i-a1" type="number" value="470" min="0"></div>
+        <div class="inp-row"><span class="inp-lbl">Уроков в пакете</span><input class="inp-f" id="i-l1" type="number" value="33" min="1"></div>
+        <div class="inp-row"><span class="inp-lbl">Длительность, мес</span><input class="inp-f" id="i-d1" type="number" value="4" min="0.5" step="0.1"></div>
+      </div>
+
+      <div class="inp-sec">
+        <div class="inp-title">Повторные пакеты</div>
+        <div class="inp-row"><span class="inp-lbl">AOV повторного, $</span><input class="inp-f" id="i-a2" type="number" value="330" min="0"></div>
+        <div class="inp-row"><span class="inp-lbl">Уроков в пакете</span><input class="inp-f" id="i-l2" type="number" value="27" min="1"></div>
+        <div class="inp-row"><span class="inp-lbl">Длительность, мес</span><input class="inp-f" id="i-d2" type="number" value="3.3" min="0.5" step="0.1"></div>
+        <div class="inp-row"><span class="inp-lbl">Retention per cycle</span><input class="inp-f sm" id="i-ret" type="number" value="30" min="0" max="100"> %</div>
+      </div>
+
+      <div class="inp-sec">
+        <div class="inp-title">Переменные затраты</div>
+        <div class="inp-row"><span class="inp-lbl">Учитель / урок, $</span><input class="inp-f" id="i-tpl" type="number" value="5" min="0" step="0.5"></div>
+        <div class="inp-row"><span class="inp-lbl">Комиссия TCM (1-я), $</span><input class="inp-f" id="i-tc1" type="number" value="80" min="0"></div>
+        <div class="tog-row">
+          <span class="tog-lbl">Комиссия TCM с повторов</span>
+          <label class="toggle"><input type="checkbox" id="t-tcr" onchange="recalc()"><span class="sl"></span></label>
+        </div>
+        <div class="inp-row"><span class="inp-lbl">ISM / ученик, $</span><input class="inp-f" id="i-ism" type="number" value="1.40" min="0" step="0.1"></div>
+        <div class="tog-row">
+          <span class="tog-lbl">MAC включён</span>
+          <label class="toggle"><input type="checkbox" id="t-mac" onchange="recalc()"><span class="sl"></span></label>
+        </div>
+        <div class="inp-row"><span class="inp-lbl" style="color:#94a3b8;padding-left:8px">MAC / ученик, $</span><input class="inp-f" id="i-mac" type="number" value="117" min="0"></div>
+      </div>
+
+      <div class="inp-sec">
+        <div class="inp-title">Горизонт расчёта</div>
+        <div class="hz-row">
+          <div class="hz-lbl"><span>Месяц</span><span class="hz-val" id="hz-disp">12</span></div>
+          <input type="range" id="i-hz" min="1" max="24" value="12" oninput="document.getElementById('hz-disp').textContent=this.value;recalc()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="right-panel">
+
+      <div class="card">
+        <div class="card-title">Кумулятивный профит после hire cost</div>
+        <div class="chart-wrap"><canvas id="chart-c"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Справочные метрики</div>
+        <div class="ref-grid">
+          <div class="ref-item"><div class="ref-lbl">Margin / первая продажа</div><div class="ref-val" id="rm1">—</div></div>
+          <div class="ref-item"><div class="ref-lbl">Margin / повторная продажа</div><div class="ref-val" id="rm2">—</div></div>
+          <div class="ref-item"><div class="ref-lbl">LTV / ученик (∞ горизонт)</div><div class="ref-val" id="rltv">—</div></div>
+          <div class="ref-item"><div class="ref-lbl">Ожид. выручка / ученик</div><div class="ref-val" id="rrps">—</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Помесячный P&amp;L</div>
+        <div style="overflow-x:auto">
+          <table class="pnl">
+            <thead><tr>
+              <th>Мес</th><th>Новые уч.</th><th>Выручка</th>
+              <th>Учитель</th><th>TCM</th><th>ISM</th><th>MAC</th>
+              <th>Net profit</th><th>Кумул.</th>
+            </tr></thead>
+            <tbody id="pnl-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Sensitivity Analysis</div>
+        <div class="tabs">
+          <button class="tab active" onclick="showTab(0,this)">Prod × Retention → Payback</button>
+          <button class="tab" onclick="showTab(1,this)">Prod × AOV → 6-mo profit</button>
+          <button class="tab" onclick="showTab(2,this)">Ramp × MAC → Payback</button>
+        </div>
+        <div class="mx-wrap" id="mx-0"></div>
+        <div class="mx-wrap" id="mx-1" style="display:none"></div>
+        <div class="mx-wrap" id="mx-2" style="display:none"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Резюме</div>
+        <div class="summary-box" id="summary"></div>
+        <div class="btn-row">
+          <button class="btn" onclick="exportPnl()">⬇ Скачать P&amp;L (CSV)</button>
+          <button class="btn" onclick="exportMx()">⬇ Скачать матрицы (CSV)</button>
+        </div>
+        <ul class="assumptions">
+          <li>Доход признаётся в момент продажи (предоплата через Xendit)</li>
+          <li>Затраты учителя — равномерно по уроку в течение пакета</li>
+          <li>Retention детерминистический: ровно N% от каждой когорты</li>
+          <li>Все ученики покупают в начале месяца</li>
+          <li>TCM не получает комиссию с повторов (по умолчанию)</li>
+          <li>Hire cost списывается в момент найма (месяц 0)</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script>
+let _chart=null, _last=null;
+
+function v(id){return parseFloat(document.getElementById(id).value)||0;}
+function chk(id){return document.getElementById(id).checked;}
+function f$(n,dp){
+  dp=dp||0;
+  if(n===null||n===undefined)return'—';
+  const s=n<0?'-':'',a=Math.abs(n);
+  if(a>=1e6)return s+'$'+(a/1e6).toFixed(1)+'M';
+  if(a>=1000)return s+'$'+(a/1000).toFixed(1)+'K';
+  return s+'$'+a.toFixed(dp);
+}
+
+function calcModel(p){
+  const hireCost=p.hs+p.ho;
+  const ret=p.ret/100;
+
+  // new students per month
+  const ns=new Array(p.hz+1).fill(0);
+  for(let m=1;m<=p.hz;m++){
+    const ri=Math.min(m-1,p.ramp.length-1);
+    ns[m]=p.sf*p.ramp[ri]/100;
+  }
+
+  const rev=new Array(p.hz+1).fill(0);
+  const tc=new Array(p.hz+1).fill(0);
+  const tcm=new Array(p.hz+1).fill(0);
+  const ism=new Array(p.hz+1).fill(0);
+  const mac=new Array(p.hz+1).fill(0);
+
+  function addTc(m0,lessons,dur,n){
+    const rate=(lessons/dur)*p.tpl*n;
+    const fm=Math.floor(dur),rem=dur-fm;
+    for(let i=0;i<fm;i++){const m=m0+i;if(m>=1&&m<=p.hz)tc[m]+=rate;}
+    if(rem>1e-9){const m=m0+fm;if(m>=1&&m<=p.hz)tc[m]+=rate*rem;}
+  }
+
+  for(let m0=1;m0<=p.hz;m0++){
+    const n0=ns[m0];
+    if(n0<1e-4)continue;
+    // first package
+    rev[m0]+=p.a1*n0;
+    tcm[m0]+=p.tc1*n0;
+    ism[m0]+=p.ism*n0;
+    if(p.macOn)mac[m0]+=p.mac*n0;
+    addTc(m0,p.l1,p.d1,n0);
+    // retention cycles
+    let csz=n0, pm=m0+Math.round(p.d1);
+    while(pm<=p.hz&&csz*ret>=1e-3){
+      csz*=ret;
+      rev[pm]+=p.a2*csz;
+      if(p.tcrOn)tcm[pm]+=p.tc1*csz;
+      addTc(pm,p.l2,p.d2,csz);
+      pm+=Math.round(p.d2);
+    }
+  }
+
+  const net=new Array(p.hz+1).fill(0);
+  const cum=new Array(p.hz+1).fill(0);
+  for(let m=1;m<=p.hz;m++)net[m]=rev[m]-tc[m]-tcm[m]-ism[m]-mac[m];
+  cum[0]=-hireCost;
+  for(let m=1;m<=p.hz;m++)cum[m]=cum[m-1]+net[m];
+
+  // payback
+  let pb=null;
+  for(let m=1;m<=p.hz;m++){
+    if(cum[m]>=0){
+      const prev=cum[m-1],curr=cum[m];
+      pb=prev>=0?m-1:m-1+(-prev)/(curr-prev);
+      break;
+    }
+  }
+
+  const p6=p.hz>=6?cum[6]:cum[p.hz];
+  const totSt=ns.slice(1).reduce((a,b)=>a+b,0);
+  const hcps=totSt>0?hireCost/totSt:0;
+
+  // margins / LTV
+  const m1=p.a1-(p.l1*p.tpl)-p.tc1-p.ism-(p.macOn?p.mac:0);
+  const m2=p.a2-(p.l2*p.tpl);
+  const ltv=ret<1?m1+m2*ret/(1-ret):m1+m2*10;
+  const rps=ret<1?p.a1+p.a2*ret/(1-ret):p.a1+p.a2*10;
+
+  return{ns,rev,tc,tcm,ism,mac,net,cum,hireCost,pb,p6,totSt,hcps,m1,m2,ltv,rps,hz:p.hz};
+}
+
+function getParams(){
+  return{
+    hs:v('i-hs'),ho:v('i-ho'),sf:v('i-sf'),
+    ramp:[v('r0'),v('r1'),v('r2'),v('r3')],
+    a1:v('i-a1'),l1:v('i-l1'),d1:v('i-d1'),
+    a2:v('i-a2'),l2:v('i-l2'),d2:v('i-d2'),
+    ret:v('i-ret'),tpl:v('i-tpl'),tc1:v('i-tc1'),
+    tcrOn:chk('t-tcr'),ism:v('i-ism'),
+    macOn:chk('t-mac'),mac:v('i-mac'),
+    hz:parseInt(document.getElementById('i-hz').value)||12
+  };
+}
+
+function recalc(){
+  const p=getParams();
+  document.getElementById('i-ht').textContent=f$(p.hs+p.ho);
+  const r=calcModel(p);
+  _last={r,p};
+
+  // KPI
+  const pbEl=document.getElementById('kpi-pb');
+  const kvPb=document.getElementById('kv-pb');
+  pbEl.className='kpi';
+  if(r.pb===null){
+    kvPb.textContent='—';pbEl.classList.add('kpi-red');
+    document.getElementById('warn').classList.add('show');
+  } else {
+    kvPb.textContent=r.pb.toFixed(1);
+    document.getElementById('warn').classList.remove('show');
+    if(r.pb<=3)pbEl.classList.add('kpi-green');
+    else if(r.pb<=6)pbEl.classList.add('kpi-yellow');
+    else pbEl.classList.add('kpi-red');
+  }
+
+  const p6El=document.getElementById('kpi-p6');
+  p6El.className='kpi';
+  document.getElementById('kv-p6').textContent=f$(r.p6);
+  p6El.classList.add(r.p6>=0?'kpi-green':'kpi-red');
+
+  document.getElementById('kv-hcps').textContent=f$(r.hcps,2);
+  document.getElementById('kv-hcps-sub').textContent=`за ${r.hz} мес (${Math.round(r.totSt*10)/10} уч.)`;
+
+  // Refs
+  document.getElementById('rm1').textContent=f$(r.m1,2);
+  document.getElementById('rm2').textContent=f$(r.m2,2);
+  document.getElementById('rltv').textContent=f$(r.ltv,0);
+  document.getElementById('rrps').textContent=f$(r.rps,0);
+
+  updateChart(r);
+  updatePnl(r);
+  updateMx(p,r);
+  updateSummary(r,p);
+}
+
+function updateChart(r){
+  const labels=Array.from({length:r.hz},(_,i)=>`${i+1}`);
+  const data=Array.from({length:r.hz},(_,i)=>Math.round(r.cum[i+1]));
+  if(_chart){
+    _chart.data.labels=labels;
+    _chart.data.datasets[0].data=data;
+    _chart.update();return;
+  }
+  const ctx=document.getElementById('chart-c').getContext('2d');
+  _chart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{
+      label:'Кумулятивный профит',data,
+      borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.07)',
+      borderWidth:2,pointRadius:3,pointHoverRadius:5,fill:true,tension:0.3
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>f$(c.parsed.y)}}
+      },
+      scales:{
+        y:{grid:{color:'#f1f5f9'},ticks:{font:{size:11},callback:v=>f$(v)}},
+        x:{grid:{color:'#f8fafc'},ticks:{font:{size:11}}}
+      }
+    },
+    plugins:[{id:'zero',afterDraw(ch){
+      const{ctx,scales:{x,y}}=ch;
+      const y0=y.getPixelForValue(0);
+      ctx.save();ctx.beginPath();ctx.setLineDash([6,4]);
+      ctx.strokeStyle='#ef4444';ctx.lineWidth=1.5;
+      ctx.moveTo(x.left,y0);ctx.lineTo(x.right,y0);
+      ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    }}]
+  });
+}
+
+function updatePnl(r){
+  let h='';
+  for(let m=1;m<=r.hz;m++){
+    const prev=r.cum[m-1];
+    const isbe=prev<0&&r.cum[m]>=0;
+    const cc=r.cum[m]>=0?'pos':'neg';
+    const nc=r.net[m]>=0?'':'neg';
+    h+=`<tr${isbe?' class="be"':''}>
+      <td>${m}${isbe?' ✦':''}</td>
+      <td>${(Math.round(r.ns[m]*10)/10).toFixed(1)}</td>
+      <td>${f$(r.rev[m])}</td>
+      <td class="neg">${r.tc[m]>0.01?f$(r.tc[m]):'—'}</td>
+      <td class="neg">${r.tcm[m]>0.01?f$(r.tcm[m]):'—'}</td>
+      <td class="neg">${r.ism[m]>0.01?f$(r.ism[m]):'—'}</td>
+      <td class="neg">${r.mac[m]>0.01?f$(r.mac[m]):'—'}</td>
+      <td class="${nc}">${f$(r.net[m])}</td>
+      <td class="${cc}">${f$(r.cum[m])}</td>
+    </tr>`;
+  }
+  document.getElementById('pnl-body').innerHTML=h;
+}
+
+function pbCell(pb,hz){
+  if(pb===null||pb>hz)return{t:'N/A',c:'cn'};
+  if(pb<=3)return{t:pb.toFixed(1),c:'cg'};
+  if(pb<=6)return{t:pb.toFixed(1),c:'cy'};
+  return{t:pb.toFixed(1),c:'cr'};
+}
+function prCell(v){
+  if(v>=5000)return{t:f$(v),c:'ph'};
+  if(v>=2000)return{t:f$(v),c:'pm'};
+  if(v>=0)return{t:f$(v),c:'pl'};
+  return{t:f$(v),c:'pn'};
+}
+
+function updateMx(bp,br){
+  const SL=[3,4,5,6,7,8];
+  const RL=[10,20,30,40,50];
+  const AL=[370,420,470,520,570];
+  const RS=[
+    {name:'Slow',ramp:[0,30,60,85,100]},
+    {name:'Current',ramp:[0,50,83,100]},
+    {name:'Fast',ramp:[50,100]}
+  ];
+  const ML=[
+    {l:'OFF',v:0,on:false},{l:'$50',v:50,on:true},
+    {l:'$100',v:100,on:true},{l:'$117',v:117,on:true},{l:'$150',v:150,on:true}
+  ];
+
+  // Tab 1
+  let t1=`<table class="mx"><thead><tr><th>Ret \\ Sales</th>`;
+  SL.forEach(s=>t1+=`<th>${s}/мес</th>`);t1+=`</tr></thead><tbody>`;
+  RL.forEach(ret=>{
+    t1+=`<tr><th>${ret}%</th>`;
+    SL.forEach(sf=>{
+      const r=calcModel({...bp,ret,sf});
+      const c=pbCell(r.pb,bp.hz);
+      const hi=Math.round(bp.sf)===sf&&Math.round(bp.ret)===ret;
+      t1+=`<td class="${c.c}${hi?' hl':''}" title="6-mo profit: ${f$(r.p6)}">${c.t}</td>`;
+    });t1+=`</tr>`;
+  });t1+=`</tbody></table>`;
+  document.getElementById('mx-0').innerHTML=t1;
+
+  // Tab 2
+  let t2=`<table class="mx"><thead><tr><th>AOV \\ Sales</th>`;
+  SL.forEach(s=>t2+=`<th>${s}/мес</th>`);t2+=`</tr></thead><tbody>`;
+  AL.forEach(a1=>{
+    t2+=`<tr><th>$${a1}</th>`;
+    SL.forEach(sf=>{
+      const r=calcModel({...bp,a1,sf});
+      const c=prCell(r.p6);
+      const hi=Math.round(bp.sf)===sf&&Math.round(bp.a1)===a1;
+      t2+=`<td class="${c.c}${hi?' hl':''}" title="Payback: ${r.pb?r.pb.toFixed(1):'N/A'}">${c.t}</td>`;
+    });t2+=`</tr>`;
+  });t2+=`</tbody></table>`;
+  document.getElementById('mx-1').innerHTML=t2;
+
+  // Tab 3
+  let t3=`<table class="mx"><thead><tr><th>MAC \\ Ramp</th>`;
+  RS.forEach(rs=>t3+=`<th>${rs.name}</th>`);t3+=`</tr></thead><tbody>`;
+  ML.forEach(ml=>{
+    t3+=`<tr><th>${ml.l}</th>`;
+    RS.forEach(rs=>{
+      const r=calcModel({...bp,ramp:rs.ramp,macOn:ml.on,mac:ml.v});
+      const c=pbCell(r.pb,bp.hz);
+      const cramp=JSON.stringify(bp.ramp)===JSON.stringify(rs.ramp);
+      const cmac=bp.macOn===ml.on&&(!ml.on||Math.round(bp.mac)===ml.v);
+      t3+=`<td class="${c.c}${(cramp&&cmac)?' hl':''}" title="6-mo profit: ${f$(r.p6)}">${c.t}</td>`;
+    });t3+=`</tr>`;
+  });t3+=`</tbody></table>`;
+  document.getElementById('mx-2').innerHTML=t3;
+}
+
+function showTab(idx,btn){
+  [0,1,2].forEach(i=>{
+    document.getElementById(`mx-${i}`).style.display=i===idx?'':'none';
+  });
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+}
+
+function updateSummary(r,p){
+  const pb=r.pb!==null?`<strong>${r.pb.toFixed(1)}</strong> месяцев`:'<strong>не окупается</strong> в горизонте';
+  document.getElementById('summary').innerHTML=
+    `При текущих параметрах найм TCM окупается за ${pb}. За 6 месяцев один TCM приносит <strong>${f$(r.p6)}</strong> чистого профита (после вычета $${p.hs+p.ho} на найм и онбординг). Hire cost в пересчёте на одного приведённого ученика (за ${r.hz} мес) — <strong>${f$(r.hcps,2)}</strong>.`;
+}
+
+function dlCSV(content,name){
+  const b=new Blob(['﻿'+content],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();
+}
+
+function exportPnl(){
+  if(!_last)return;const{r}=_last;
+  let c='Месяц,Новые ученики,Выручка,Учитель,TCM,ISM,MAC,Net profit,Кумул.\n';
+  for(let m=1;m<=r.hz;m++){
+    c+=[m,(Math.round(r.ns[m]*10)/10),r.rev[m].toFixed(2),r.tc[m].toFixed(2),r.tcm[m].toFixed(2),r.ism[m].toFixed(2),r.mac[m].toFixed(2),r.net[m].toFixed(2),r.cum[m].toFixed(2)].join(',')+'\n';
+  }
+  dlCSV(c,'tcm_pnl.csv');
+}
+
+function exportMx(){
+  if(!_last)return;const{p}=_last;
+  const SL=[3,4,5,6,7,8];const RL=[10,20,30,40,50];const AL=[370,420,470,520,570];
+  const RS=[{name:'Slow',ramp:[0,30,60,85,100]},{name:'Current',ramp:[0,50,83,100]},{name:'Fast',ramp:[50,100]}];
+  const ML=[{l:'OFF',v:0,on:false},{l:'$50',v:50,on:true},{l:'$100',v:100,on:true},{l:'$117',v:117,on:true},{l:'$150',v:150,on:true}];
+  let c='=== Matrix 1: Prod x Retention → Payback months ===\n';
+  c+='Retention,'+SL.map(s=>s+'/mo').join(',')+'\n';
+  RL.forEach(ret=>{c+=ret+'%,'+SL.map(sf=>{const r=calcModel({...p,ret,sf});return r.pb!==null?r.pb.toFixed(1):'N/A';}).join(',')+'\n';});
+  c+='\n=== Matrix 2: Prod x AOV → 6-month profit ===\n';
+  c+='AOV,'+SL.map(s=>s+'/mo').join(',')+'\n';
+  AL.forEach(a1=>{c+='$'+a1+','+SL.map(sf=>{const r=calcModel({...p,a1,sf});return r.p6.toFixed(0);}).join(',')+'\n';});
+  c+='\n=== Matrix 3: Ramp x MAC → Payback months ===\n';
+  c+='MAC,'+RS.map(rs=>rs.name).join(',')+'\n';
+  ML.forEach(ml=>{c+=ml.l+','+RS.map(rs=>{const r=calcModel({...p,ramp:rs.ramp,macOn:ml.on,mac:ml.v});return r.pb!==null?r.pb.toFixed(1):'N/A';}).join(',')+'\n';});
+  dlCSV(c,'tcm_sensitivity.csv');
+}
+
+document.querySelectorAll('.inputs-panel input[type=number]').forEach(el=>el.addEventListener('input',recalc));
+recalc();
+</script>
+</body>
+</html>
