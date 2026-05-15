@@ -159,13 +159,20 @@ table.mx td.hl{outline:2px solid #3b82f6;outline-offset:-2px}
 
       <div class="inp-sec">
         <div class="inp-title">Производительность TCM</div>
-        <div class="inp-row"><span class="inp-lbl">Продаж / мес (макс.)</span><input class="inp-f" id="i-sf" type="number" value="6" min="1" max="50"></div>
-        <div class="inp-title" style="margin-top:10px">Рамп-профиль</div>
+        <div class="inp-row"><span class="inp-lbl">Продаж / мес (среднее)</span><input class="inp-f" id="i-sf" type="number" value="6" min="1" max="50"></div>
+        <div class="inp-title" style="margin-top:10px">Рамп-профиль (% от среднего)</div>
         <table class="ramp-t">
           <tr><td class="ramp-m">Мес 1</td><td><input id="r0" type="number" value="0" min="0" max="200"> %</td></tr>
-          <tr><td class="ramp-m">Мес 2</td><td><input id="r1" type="number" value="50" min="0" max="200"> %</td></tr>
-          <tr><td class="ramp-m">Мес 3</td><td><input id="r2" type="number" value="83" min="0" max="200"> %</td></tr>
-          <tr><td class="ramp-m">Мес 4+</td><td><input id="r3" type="number" value="100" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 2</td><td><input id="r1" type="number" value="10" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 3</td><td><input id="r2" type="number" value="20" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 4</td><td><input id="r3" type="number" value="30" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 5</td><td><input id="r4" type="number" value="40" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 6</td><td><input id="r5" type="number" value="50" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 7</td><td><input id="r6" type="number" value="60" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 8</td><td><input id="r7" type="number" value="70" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 9</td><td><input id="r8" type="number" value="80" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 10</td><td><input id="r9" type="number" value="90" min="0" max="200"> %</td></tr>
+          <tr><td class="ramp-m">Мес 11+</td><td><input id="r10" type="number" value="100" min="0" max="200"> %</td></tr>
         </table>
       </div>
 
@@ -213,7 +220,11 @@ table.mx td.hl{outline:2px solid #3b82f6;outline-offset:-2px}
     <div class="right-panel">
 
       <div class="card">
-        <div class="card-title">Кумулятивный профит после hire cost</div>
+        <div class="card-title">Вложения в TCM vs вклад TCM в маржу — точка пересечения = окупаемость</div>
+        <div style="display:flex;gap:16px;font-size:11px;color:#64748b;margin-bottom:8px">
+          <span><span style="display:inline-block;width:12px;height:3px;background:#3b82f6;vertical-align:middle;margin-right:4px;border-radius:2px"></span>Маржа от TCM (выручка − учитель − ISM − MAC)</span>
+          <span><span style="display:inline-block;width:12px;height:3px;background:#f97316;vertical-align:middle;margin-right:4px;border-radius:2px;border-top:2px dashed #f97316"></span>Затраты на TCM (найм + комиссии)</span>
+        </div>
         <div class="chart-wrap"><canvas id="chart-c"></canvas></div>
       </div>
 
@@ -233,8 +244,8 @@ table.mx td.hl{outline:2px solid #3b82f6;outline-offset:-2px}
           <table class="pnl">
             <thead><tr>
               <th>Мес</th><th>Новые уч.</th><th>Выручка</th>
-              <th>Учитель</th><th>TCM</th><th>ISM</th><th>MAC</th>
-              <th>Net profit</th><th>Кумул.</th>
+              <th>Учитель</th><th>Комисс. TCM</th><th>Найм</th><th>ISM</th><th>MAC</th>
+              <th>Net profit</th><th>∑ затр. TCM</th><th>Кумул. профит</th>
             </tr></thead>
             <tbody id="pnl-body"></tbody>
           </table>
@@ -333,9 +344,19 @@ function calcModel(p){
 
   const net=new Array(p.hz+1).fill(0);
   const cum=new Array(p.hz+1).fill(0);
+  // cumContrib = cumulative (rev - teacher - ism - mac) — что TCM приносит до своих расходов
+  // cumTcm     = hire + cumulative commissions — сколько вложено в TCM
+  const cumContrib=new Array(p.hz+1).fill(0);
+  const cumTcm=new Array(p.hz+1).fill(0);
   for(let m=1;m<=p.hz;m++)net[m]=rev[m]-tc[m]-tcm[m]-ism[m]-mac[m];
   cum[0]=-hireCost;
-  for(let m=1;m<=p.hz;m++)cum[m]=cum[m-1]+net[m];
+  cumTcm[0]=hireCost;
+  cumContrib[0]=0;
+  for(let m=1;m<=p.hz;m++){
+    cum[m]=cum[m-1]+net[m];
+    cumContrib[m]=cumContrib[m-1]+(rev[m]-tc[m]-ism[m]-mac[m]);
+    cumTcm[m]=cumTcm[m-1]+tcm[m];
+  }
 
   // payback
   let pb=null;
@@ -357,13 +378,13 @@ function calcModel(p){
   const ltv=ret<1?m1+m2*ret/(1-ret):m1+m2*10;
   const rps=ret<1?p.a1+p.a2*ret/(1-ret):p.a1+p.a2*10;
 
-  return{ns,rev,tc,tcm,ism,mac,net,cum,hireCost,pb,p6,totSt,hcps,m1,m2,ltv,rps,hz:p.hz};
+  return{ns,rev,tc,tcm,ism,mac,net,cum,cumContrib,cumTcm,hireCost,pb,p6,totSt,hcps,m1,m2,ltv,rps,hz:p.hz};
 }
 
 function getParams(){
   return{
     hs:v('i-hs'),ho:v('i-ho'),sf:v('i-sf'),
-    ramp:[v('r0'),v('r1'),v('r2'),v('r3')],
+    ramp:[v('r0'),v('r1'),v('r2'),v('r3'),v('r4'),v('r5'),v('r6'),v('r7'),v('r8'),v('r9'),v('r10')],
     a1:v('i-a1'),l1:v('i-l1'),d1:v('i-d1'),
     a2:v('i-a2'),l2:v('i-l2'),d2:v('i-d2'),
     ret:v('i-ret'),tpl:v('i-tpl'),tc1:v('i-tc1'),
@@ -416,39 +437,40 @@ function recalc(){
 
 function updateChart(r){
   const labels=Array.from({length:r.hz},(_,i)=>`${i+1}`);
-  const data=Array.from({length:r.hz},(_,i)=>Math.round(r.cum[i+1]));
+  const contrib=Array.from({length:r.hz},(_,i)=>Math.round(r.cumContrib[i+1]));
+  const tcmInv=Array.from({length:r.hz},(_,i)=>Math.round(r.cumTcm[i+1]));
   if(_chart){
     _chart.data.labels=labels;
-    _chart.data.datasets[0].data=data;
+    _chart.data.datasets[0].data=contrib;
+    _chart.data.datasets[1].data=tcmInv;
     _chart.update();return;
   }
   const ctx=document.getElementById('chart-c').getContext('2d');
   _chart=new Chart(ctx,{
     type:'line',
-    data:{labels,datasets:[{
-      label:'Кумулятивный профит',data,
-      borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.07)',
-      borderWidth:2,pointRadius:3,pointHoverRadius:5,fill:true,tension:0.3
-    }]},
+    data:{labels,datasets:[
+      {
+        label:'Маржа от TCM',data:contrib,
+        borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.07)',
+        borderWidth:2,pointRadius:3,pointHoverRadius:5,fill:true,tension:0.3
+      },
+      {
+        label:'Затраты на TCM',data:tcmInv,
+        borderColor:'#f97316',backgroundColor:'transparent',
+        borderWidth:2,borderDash:[5,4],pointRadius:3,pointHoverRadius:5,fill:false,tension:0.3
+      }
+    ]},
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:c=>f$(c.parsed.y)}}
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${f$(c.parsed.y)}`}}
       },
       scales:{
         y:{grid:{color:'#f1f5f9'},ticks:{font:{size:11},callback:v=>f$(v)}},
         x:{grid:{color:'#f8fafc'},ticks:{font:{size:11}}}
       }
-    },
-    plugins:[{id:'zero',afterDraw(ch){
-      const{ctx,scales:{x,y}}=ch;
-      const y0=y.getPixelForValue(0);
-      ctx.save();ctx.beginPath();ctx.setLineDash([6,4]);
-      ctx.strokeStyle='#ef4444';ctx.lineWidth=1.5;
-      ctx.moveTo(x.left,y0);ctx.lineTo(x.right,y0);
-      ctx.stroke();ctx.setLineDash([]);ctx.restore();
-    }}]
+    }
   });
 }
 
@@ -459,15 +481,18 @@ function updatePnl(r){
     const isbe=prev<0&&r.cum[m]>=0;
     const cc=r.cum[m]>=0?'pos':'neg';
     const nc=r.net[m]>=0?'':'neg';
+    const hire=m===1?r.hireCost:0;
     h+=`<tr${isbe?' class="be"':''}>
       <td>${m}${isbe?' ✦':''}</td>
       <td>${(Math.round(r.ns[m]*10)/10).toFixed(1)}</td>
       <td>${f$(r.rev[m])}</td>
       <td class="neg">${r.tc[m]>0.01?f$(r.tc[m]):'—'}</td>
       <td class="neg">${r.tcm[m]>0.01?f$(r.tcm[m]):'—'}</td>
+      <td class="neg">${hire>0?f$(hire):'—'}</td>
       <td class="neg">${r.ism[m]>0.01?f$(r.ism[m]):'—'}</td>
       <td class="neg">${r.mac[m]>0.01?f$(r.mac[m]):'—'}</td>
       <td class="${nc}">${f$(r.net[m])}</td>
+      <td class="neg" style="font-weight:500">${f$(r.cumTcm[m])}</td>
       <td class="${cc}">${f$(r.cum[m])}</td>
     </tr>`;
   }
@@ -492,9 +517,9 @@ function updateMx(bp,br){
   const RL=[10,20,30,40,50];
   const AL=[370,420,470,520,570];
   const RS=[
-    {name:'Slow',ramp:[0,30,60,85,100]},
-    {name:'Current',ramp:[0,50,83,100]},
-    {name:'Fast',ramp:[50,100]}
+    {name:'Slow',ramp:[0,5,10,15,20,30,40,50,60,70,80,90,100]},
+    {name:'Current',ramp:[0,10,20,30,40,50,60,70,80,90,100]},
+    {name:'Fast',ramp:[0,25,50,75,100]}
   ];
   const ML=[
     {l:'OFF',v:0,on:false},{l:'$50',v:50,on:true},
@@ -565,9 +590,10 @@ function dlCSV(content,name){
 
 function exportPnl(){
   if(!_last)return;const{r}=_last;
-  let c='Месяц,Новые ученики,Выручка,Учитель,TCM,ISM,MAC,Net profit,Кумул.\n';
+  let c='Месяц,Новые ученики,Выручка,Учитель,Комисс.TCM,Найм,ISM,MAC,Net profit,∑ затр.TCM,Кумул.профит\n';
   for(let m=1;m<=r.hz;m++){
-    c+=[m,(Math.round(r.ns[m]*10)/10),r.rev[m].toFixed(2),r.tc[m].toFixed(2),r.tcm[m].toFixed(2),r.ism[m].toFixed(2),r.mac[m].toFixed(2),r.net[m].toFixed(2),r.cum[m].toFixed(2)].join(',')+'\n';
+    const hire=m===1?r.hireCost:0;
+    c+=[m,(Math.round(r.ns[m]*10)/10),r.rev[m].toFixed(2),r.tc[m].toFixed(2),r.tcm[m].toFixed(2),hire.toFixed(2),r.ism[m].toFixed(2),r.mac[m].toFixed(2),r.net[m].toFixed(2),r.cumTcm[m].toFixed(2),r.cum[m].toFixed(2)].join(',')+'\n';
   }
   dlCSV(c,'tcm_pnl.csv');
 }
@@ -575,7 +601,7 @@ function exportPnl(){
 function exportMx(){
   if(!_last)return;const{p}=_last;
   const SL=[3,4,5,6,7,8];const RL=[10,20,30,40,50];const AL=[370,420,470,520,570];
-  const RS=[{name:'Slow',ramp:[0,30,60,85,100]},{name:'Current',ramp:[0,50,83,100]},{name:'Fast',ramp:[50,100]}];
+  const RS=[{name:'Slow',ramp:[0,5,10,15,20,30,40,50,60,70,80,90,100]},{name:'Current',ramp:[0,10,20,30,40,50,60,70,80,90,100]},{name:'Fast',ramp:[0,25,50,75,100]}];
   const ML=[{l:'OFF',v:0,on:false},{l:'$50',v:50,on:true},{l:'$100',v:100,on:true},{l:'$117',v:117,on:true},{l:'$150',v:150,on:true}];
   let c='=== Matrix 1: Prod x Retention → Payback months ===\n';
   c+='Retention,'+SL.map(s=>s+'/mo').join(',')+'\n';
