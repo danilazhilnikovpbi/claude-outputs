@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>May 2026 — Step 1 + Step 2 Summary</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;font-size:14px;line-height:1.6}
+.page{max-width:1100px;margin:0 auto;padding:32px 20px}
+
+/* Header */
+.doc-header{margin-bottom:32px}
+.doc-header h1{font-size:24px;font-weight:700;margin-bottom:6px}
+.doc-meta{font-size:13px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap}
+.doc-meta span{display:flex;align-items:center;gap:5px}
+
+/* Headline finding */
+.headline-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:28px;border-left:4px solid #f97316}
+.headline-box p{font-size:14px;color:#475569;line-height:1.75}
+.headline-box strong{color:#1e293b}
+
+/* Sections */
+.section{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:20px}
+.section-title{font-size:17px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.section-sub{font-size:12px;color:#64748b;margin-bottom:16px}
+.subsection{margin-bottom:20px}
+.subsection:last-child{margin-bottom:0}
+.sub-title{font-size:13px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f1f5f9}
+p.note{font-size:13px;color:#475569;margin-top:8px;line-height:1.65}
+p.note strong{color:#1e293b}
+p.note.warn{color:#92400e;background:#fef3c7;border:1px solid #fbbf24;border-radius:7px;padding:10px 14px;margin-top:10px}
+p.note.good{color:#166534;background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:10px 14px;margin-top:10px}
+
+/* Tables */
+.tbl-wrap{overflow-x:auto;margin-bottom:8px}
+table{border-collapse:collapse;font-size:12px;width:100%}
+th{text-align:left;background:#f8fafc;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#64748b;padding:8px 10px;border:1px solid #e2e8f0;white-space:nowrap}
+td{padding:7px 10px;border:1px solid #f1f5f9;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr:nth-child(even) td{background:#fafafa}
+tr.may td{background:#fff8ed !important;font-weight:600}
+tr.may td:first-child{border-left:3px solid #f97316}
+
+/* Value coloring */
+.warn-val{color:#b45309;font-weight:700}
+.good-val{color:#15803d;font-weight:700}
+.ok-val{color:#1e293b}
+.neutral{color:#64748b}
+
+/* Insight boxes */
+.insight{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin-top:12px;font-size:13px;color:#0c4a6e;line-height:1.65}
+.insight strong{color:#0369a1}
+.insight.orange{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+.insight.orange strong{color:#c2410c}
+.insight.green{background:#f0fdf4;border-color:#bbf7d0;color:#14532d}
+.insight.green strong{color:#15803d}
+
+/* Summary list */
+.summary-list{list-style:none;padding:0}
+.summary-list li{padding:10px 14px;border-radius:8px;margin-bottom:8px;font-size:13px;line-height:1.65;border-left:4px solid}
+.summary-list li:nth-child(1){background:#fff7ed;border-color:#f97316;color:#7c2d12}
+.summary-list li:nth-child(2){background:#fff7ed;border-color:#fb923c;color:#7c2d12}
+.summary-list li:nth-child(3){background:#fef3c7;border-color:#fbbf24;color:#78350f}
+.summary-list li:nth-child(4){background:#f8fafc;border-color:#94a3b8;color:#334155}
+.summary-list li strong{font-weight:700}
+
+/* Manager grid */
+.mgr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.mgr-card{background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden}
+.mgr-header{padding:10px 14px;font-weight:700;font-size:13px;border-bottom:1px solid #e2e8f0;background:#fff}
+.mgr-body{padding:10px 14px}
+.mgr-nc{display:flex;gap:6px;align-items:baseline;margin-top:6px}
+.mgr-nc .lbl{font-size:11px;color:#94a3b8}
+.mgr-nc .val{font-size:20px;font-weight:700}
+.mgr-nc .val.bad{color:#dc2626}
+.mgr-nc .val.ok{color:#16a34a}
+
+/* Divider */
+.divider{height:1px;background:#f1f5f9;margin:16px 0}
+
+/* Chip */
+.chip{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle}
+.chip.warn{background:#fef3c7;color:#92400e}
+.chip.good{background:#dcfce7;color:#15803d}
+.chip.neutral{background:#f1f5f9;color:#64748b}
+
+@media(max-width:700px){
+  .mgr-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="doc-header">
+    <h1>May 2026 — Step 1 + Step 2 Deep Dive</h1>
+    <div class="doc-meta">
+      <span>📅 Окно: 1–17 каждого месяца (равное сравнение)</span>
+      <span>📊 Метод: current purchase vs same student's previous purchase</span>
+      <span>🗓 Период: Dec 2025 → May 2026</span>
+    </div>
+  </div>
+
+  <!-- Headline finding -->
+  <div class="headline-box">
+    <p><strong>Главный сигнал:</strong> 5 месяцев подряд студенты покупали бо́льшие пакеты, чем имели раньше (+13–16% pkg uplift). В мае этот тренд сломался — uplift упал до нуля. <strong>Ценообразование (PPL) осталось здоровым — проблема в размере пакета.</strong></p>
+  </div>
+
+  <!-- Headline table -->
+  <div class="section">
+    <div class="section-title">📈 Сводная таблица по месяцам</div>
+    <div class="section-sub">N = кол-во вторичных покупок (дни 1–17), AOV/pkg curr vs prev — текущая vs предыдущая покупка того же студента</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Месяц</th><th>N</th>
+          <th>AOV curr</th><th>AOV prev</th><th>AOV uplift</th>
+          <th>Pkg curr</th><th>Pkg prev</th><th>Pkg uplift</th>
+          <th>PPL uplift</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Dec</td><td>441</td><td>$182.77</td><td>$157.66</td><td class="good-val">+15.9%</td><td>21.22</td><td>18.80</td><td class="good-val">+12.9%</td><td>+4.3%</td></tr>
+          <tr><td>Jan</td><td>361</td><td>$190.83</td><td>$158.58</td><td class="good-val">+20.3%</td><td>22.24</td><td>19.24</td><td class="good-val">+15.6%</td><td>+6.6%</td></tr>
+          <tr><td>Feb</td><td>391</td><td>$190.85</td><td>$162.26</td><td class="good-val">+17.6%</td><td>20.85</td><td>18.26</td><td class="good-val">+14.2%</td><td>−3.8%</td></tr>
+          <tr><td>Mar</td><td>357</td><td>$187.76</td><td>$162.37</td><td class="good-val">+15.6%</td><td>20.89</td><td>18.48</td><td class="good-val">+13.0%</td><td>+2.1%</td></tr>
+          <tr><td>Apr</td><td>346</td><td>$203.33</td><td>$174.02</td><td class="good-val">+16.8%</td><td>22.21</td><td>19.51</td><td class="good-val">+13.8%</td><td>+1.7%</td></tr>
+          <tr class="may"><td>May ⚠️</td><td>359</td><td>$187.01</td><td>$180.55</td><td class="warn-val">+3.6%</td><td>20.25</td><td>20.32</td><td class="warn-val">−0.3%</td><td class="good-val">+5.4%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="section">
+    <div class="section-title">🔍 Step 1 — Коллапс next_course в мае</div>
+    <div class="section-sub">next_course — тип, который сломался. prolongation и first_additional в норме.</div>
+
+    <!-- next_course -->
+    <div class="subsection">
+      <div class="sub-title">next_course — curr vs prev по месяцам</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Месяц</th><th>N</th><th>AOV curr</th><th>AOV prev</th><th>AOV %</th><th>Pkg curr</th><th>Pkg prev</th><th>Pkg uplift</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>137</td><td>$240.12</td><td>$223.18</td><td class="good-val">+7.6%</td><td>29.12</td><td>28.84</td><td class="good-val">+1.0%</td></tr>
+            <tr><td>Jan</td><td>144</td><td>$223.75</td><td>$194.09</td><td class="good-val">+15.3%</td><td>28.09</td><td>24.98</td><td class="good-val">+12.4%</td></tr>
+            <tr><td>Feb</td><td>127</td><td>$242.44</td><td>$215.39</td><td class="good-val">+12.6%</td><td>28.14</td><td>25.08</td><td class="good-val">+12.2%</td></tr>
+            <tr><td>Mar</td><td>112</td><td>$247.45</td><td>$224.49</td><td class="good-val">+10.2%</td><td>29.41</td><td>26.83</td><td class="good-val">+9.6%</td></tr>
+            <tr><td>Apr</td><td>113</td><td>$286.29</td><td>$237.02</td><td class="good-val">+20.8%</td><td>33.73</td><td>29.24</td><td class="good-val">+15.4%</td></tr>
+            <tr class="may"><td>May ⚠️</td><td>107</td><td>$212.17</td><td>$225.28</td><td class="warn-val">−5.8%</td><td>24.28</td><td>27.50</td><td class="warn-val">−11.7%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="insight orange"><strong>Главная находка:</strong> первый раз за 6 месяцев студенты, переходящие на новый курс, купили меньший пакет, чем имели (−3.2 урока, −11.7%). В предыдущих месяцах uplift был от +1% до +15%.</div>
+    </div>
+
+    <!-- prolongation contrast -->
+    <div class="subsection">
+      <div class="sub-title">prolongation — для контраста (тип здоров)</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Месяц</th><th>N</th><th>AOV curr</th><th>AOV prev</th><th>AOV %</th><th>Pkg curr</th><th>Pkg prev</th><th>Pkg uplift</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>256</td><td>$146.52</td><td>$119.95</td><td class="good-val">+22.2%</td><td>16.48</td><td>13.94</td><td class="good-val">+18.2%</td></tr>
+            <tr><td>Jan</td><td>177</td><td>$168.21</td><td>$132.45</td><td class="good-val">+27.0%</td><td>17.91</td><td>15.03</td><td class="good-val">+19.2%</td></tr>
+            <tr><td>Feb</td><td>213</td><td>$159.03</td><td>$128.64</td><td class="good-val">+23.6%</td><td>16.15</td><td>14.09</td><td class="good-val">+14.6%</td></tr>
+            <tr><td>Mar</td><td>199</td><td>$159.23</td><td>$130.44</td><td class="good-val">+22.1%</td><td>15.96</td><td>13.73</td><td class="good-val">+16.2%</td></tr>
+            <tr><td>Apr</td><td>197</td><td>$151.44</td><td>$136.62</td><td class="good-val">+10.8%</td><td>15.37</td><td>14.47</td><td class="good-val">+6.2%</td></tr>
+            <tr class="may"><td>May ✅</td><td>209</td><td>$168.93</td><td>$153.39</td><td class="good-val">+10.1%</td><td>17.43</td><td>16.27</td><td class="good-val">+7.1%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="insight green"><strong>prolongation в мае улучшился</strong> vs апрель (+7.1% pkg uplift vs +6.2% в апр). Этот тип — не проблема.</div>
+    </div>
+
+    <!-- Math Tutoring -->
+    <div class="subsection">
+      <div class="sub-title">Math Tutoring — захват next_course</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Месяц</th><th>NC total</th><th>MT count</th><th>MT share</th><th>MT pkg curr</th><th>MT pkg prev</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>137</td><td>3</td><td>2.2%</td><td>17.3</td><td>14.7</td></tr>
+            <tr><td>Jan</td><td>144</td><td>5</td><td>3.5%</td><td>21.0</td><td>28.8</td></tr>
+            <tr><td>Feb</td><td>127</td><td>3</td><td>2.4%</td><td>35.3</td><td>22.7</td></tr>
+            <tr><td>Mar</td><td>112</td><td>8</td><td>7.1%</td><td>33.6</td><td>31.5</td></tr>
+            <tr><td>Apr</td><td>113</td><td>9</td><td>8.0%</td><td>30.7</td><td>28.6</td></tr>
+            <tr class="may"><td>May ⚠️</td><td>107</td><td>19</td><td class="warn-val">17.8%</td><td class="warn-val">23.6</td><td>32.0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="insight orange">Доля Math Tutoring в next_course <strong>удвоилась</strong> в мае (8% → 17.8%). Студенты, переходящие в MT, имели пакеты avg 32 урока, но купили только 24 — уменьшили на 8 уроков. Единственный месяц, когда MT curr pkg &lt; prev pkg.</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Package mix -->
+    <div class="subsection">
+      <div class="sub-title">Микс пакетов внутри next_course (текущий пакет)</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Pkg bucket</th><th>Dec</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th></tr></thead>
+          <tbody>
+            <tr><td><strong>10</strong></td><td>7.3%</td><td>6.2%</td><td>11.8%</td><td>12.5%</td><td>8.0%</td><td class="warn-val">20.6% ⚠️</td></tr>
+            <tr><td>25–32</td><td>12.4%</td><td>14.6%</td><td>12.6%</td><td>8.0%</td><td>12.4%</td><td class="warn-val">6.5% ⚠️</td></tr>
+            <tr><td>40</td><td>19.0%</td><td>21.5%</td><td>27.6%</td><td>27.7%</td><td>25.7%</td><td>25.2%</td></tr>
+            <tr><td><strong>41+</strong></td><td>13.9%</td><td>9.7%</td><td>4.7%</td><td>9.8%</td><td>15.9%</td><td class="warn-val">3.7% ⚠️</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">В мае pkg 10 стал самым частым стартовым (20.6% — в 2.5× от апреля). Pkg 41+ (большие 48/80-урочные пакеты) рухнул с 15.9% до 3.7%.</p>
+    </div>
+
+    <!-- Bundling split -->
+    <div class="subsection">
+      <div class="sub-title">next_course по Bundling — ключевое разделение</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Bundling</th><th>Месяц</th><th>N</th><th>Pkg curr</th><th>Pkg prev</th><th>AOV curr</th></tr></thead>
+          <tbody>
+            <tr><td>Bundled</td><td>Apr</td><td>15</td><td>33.3</td><td>31.9</td><td>$321</td></tr>
+            <tr class="may"><td>Bundled</td><td>May ✅</td><td>12</td><td class="good-val">29.5</td><td>29.5</td><td>$290</td></tr>
+            <tr><td>Not bundled</td><td>Apr</td><td>98</td><td>33.8</td><td>28.8</td><td>$281</td></tr>
+            <tr class="may"><td>Not bundled</td><td>May ⚠️</td><td>95</td><td class="warn-val">23.6</td><td>27.2</td><td class="warn-val">$202</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="insight orange"><strong>Bundled транзакции удержали размер пакета</strong> (29.5 vs prev 29.5 — идеально). <strong>Non-bundled рухнул:</strong> avg pkg 23.6 vs 27.2 у предыдущего. AOV: $281 → $202 (−28%). Проблема сосредоточена в non-bundled next_course.</div>
+    </div>
+
+    <!-- Group type -->
+    <div class="subsection">
+      <div class="sub-title">next_course по group_type — апрель vs май</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>group_type</th><th>Apr pkg curr</th><th>Apr pkg prev</th><th>May pkg curr</th><th>May pkg prev</th></tr></thead>
+          <tbody>
+            <tr><td>Group</td><td>34.1</td><td>28.4</td><td class="warn-val">25.2</td><td>25.8</td></tr>
+            <tr><td>Premium</td><td>31.9</td><td>29.5</td><td class="warn-val">22.5</td><td>25.6</td></tr>
+            <tr><td><strong>Private</strong></td><td>33.9</td><td>32.6</td><td class="warn-val">24.3</td><td class="warn-val">33.7</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Private — самое яркое: студенты с avg 33.7 урочными пакетами купили только 24.3 урока — уменьшение на 9.4 урока при переходе.</p>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="section">
+    <div class="section-title">👤 Step 2 — Sultan / Fatin / Amel / Bayu (6 месяцев)</div>
+    <div class="section-sub">Индивидуальный разбор менеджеров по вторичным продажам, дни 1–17</div>
+
+    <!-- Sultan -->
+    <div class="subsection">
+      <div class="sub-title">Sultan</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Мес</th><th>N</th><th>AOV curr</th><th>AOV prev</th><th>AOV %</th><th>Pkg curr</th><th>Pkg prev</th><th>Pkg Δ</th><th>PPL curr</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>24</td><td>$150.92</td><td>$138.48</td><td class="good-val">+9.0%</td><td>15.12</td><td>17.17</td><td class="warn-val">−2.05</td><td>$10.26</td></tr>
+            <tr><td>Jan</td><td>18</td><td>$190.92</td><td>$138.24</td><td class="good-val">+38.1%</td><td>23.44</td><td>18.33</td><td class="good-val">+5.11</td><td>$10.61</td></tr>
+            <tr><td>Feb</td><td>17</td><td>$164.10</td><td>$173.74</td><td class="warn-val">−5.5%</td><td>20.53</td><td>23.06</td><td class="warn-val">−2.53</td><td>$8.97</td></tr>
+            <tr><td>Mar</td><td>18</td><td>$183.22</td><td>$194.44</td><td class="warn-val">−5.8%</td><td>21.39</td><td>24.33</td><td class="warn-val">−2.94</td><td>$9.87</td></tr>
+            <tr><td>Apr</td><td>14</td><td>$275.46</td><td>$207.93</td><td class="good-val">+32.5%</td><td>29.50</td><td>24.14</td><td class="good-val">+5.36</td><td>$8.99</td></tr>
+            <tr class="may"><td>May ⚠️</td><td>11</td><td class="warn-val">$113.13</td><td>$140.82</td><td class="warn-val">−19.7%</td><td class="warn-val">13.91</td><td>16.36</td><td class="warn-val">−2.45</td><td>$9.03</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="sub-title" style="margin-top:12px">Sultan — next_course отдельно</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Мес</th><th>NC count</th><th>NC pkg curr</th><th>NC AOV</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>5</td><td>23.4</td><td>$179</td></tr>
+            <tr><td>Jan</td><td>10</td><td>33.9</td><td>$230</td></tr>
+            <tr><td>Feb</td><td>9</td><td>28.8</td><td>$215</td></tr>
+            <tr><td>Mar</td><td>15</td><td>21.9</td><td>$180</td></tr>
+            <tr><td>Apr</td><td>7</td><td>35.6</td><td>$358</td></tr>
+            <tr class="may"><td>May ⚠️</td><td>7</td><td class="warn-val">10.7</td><td class="warn-val">$100</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="insight orange"><strong>Smoking gun:</strong> 7 next_course продаж в мае при avg пакете 10.7 уроков. В апреле те же 7 продаж давали avg 35.6 уроков. Одинаковое количество транзакций — 1/3 размера пакета.</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Fatin -->
+    <div class="subsection">
+      <div class="sub-title">Fatin</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Мес</th><th>N</th><th>AOV curr</th><th>AOV prev</th><th>Pkg curr</th><th>Pkg prev</th><th>PPL curr</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>28</td><td>$174.49</td><td>$145.71</td><td>20.04</td><td>17.29</td><td>$8.87</td></tr>
+            <tr><td>Jan</td><td>21</td><td>$224.91</td><td>$195.62</td><td>24.38</td><td>23.38</td><td>$9.06</td></tr>
+            <tr><td>Feb</td><td>22</td><td>$205.01</td><td>$188.30</td><td>25.77</td><td>24.64</td><td>$8.68</td></tr>
+            <tr><td>Mar</td><td>13</td><td>$267.55</td><td>$227.80</td><td>28.77</td><td>26.15</td><td>$10.53</td></tr>
+            <tr><td>Apr</td><td>17</td><td>$293.72</td><td>$268.77</td><td>33.65</td><td>35.29</td><td>$9.26</td></tr>
+            <tr class="may"><td>May ⚠️</td><td>18</td><td class="warn-val">$151.69</td><td>$148.39</td><td class="warn-val">18.50</td><td>20.83</td><td>$8.77</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">next_course pkg по месяцам: 39.8 → 29.3 → 26.6 → 30.7 → 36.3 → <strong class="warn-val">21.1 в мае</strong>. AOV в next_course: $318 → $165. PPL в норме ($8.77).</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Amel -->
+    <div class="subsection">
+      <div class="sub-title">Amel</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Мес</th><th>N</th><th>AOV curr</th><th>AOV prev</th><th>Pkg curr</th><th>Pkg prev</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>21</td><td>$257.02</td><td>$239.46</td><td>31.24</td><td>31.29</td></tr>
+            <tr><td>Jan</td><td>16</td><td>$266.09</td><td>$240.36</td><td>30.88</td><td>27.00</td></tr>
+            <tr><td>Feb</td><td>16</td><td>$253.92</td><td>$310.96</td><td>27.38</td><td>36.56</td></tr>
+            <tr><td>Mar</td><td>15</td><td>$322.75</td><td>$294.08</td><td>32.93</td><td>29.47</td></tr>
+            <tr><td>Apr</td><td>20</td><td>$346.30</td><td>$293.14</td><td>34.80</td><td>29.05</td></tr>
+            <tr class="may"><td>May</td><td>12</td><td>$249.06</td><td>$259.84</td><td class="warn-val">27.00</td><td>31.00</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Падение у Amel меньше, чем у Sultan/Fatin. next_course pkg: 35.3 → 34.8 → 33.0 → 33.0 → 39.5 → <strong class="warn-val">28.2</strong>. Снижение есть, но менее катастрофическое.</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Bayu -->
+    <div class="subsection">
+      <div class="sub-title">Bayu</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Мес</th><th>N</th><th>AOV curr</th><th>AOV prev</th><th>Pkg curr</th><th>Pkg prev</th></tr></thead>
+          <tbody>
+            <tr><td>Dec</td><td>16</td><td>$152.54</td><td>$149.53</td><td>22.75</td><td>23.25</td></tr>
+            <tr><td>Jan</td><td>22</td><td>$188.40</td><td>$186.66</td><td>25.36</td><td>26.32</td></tr>
+            <tr><td>Feb</td><td>12</td><td>$186.56</td><td>$137.69</td><td>27.92</td><td>19.75</td></tr>
+            <tr><td>Mar</td><td>9</td><td>$267.58</td><td>$174.94</td><td>35.67</td><td>25.50</td></tr>
+            <tr><td>Apr</td><td>8</td><td>$294.91</td><td>$217.43</td><td>29.00</td><td>22.25</td></tr>
+            <tr class="may"><td>May ⚠️</td><td>6</td><td class="warn-val">$132.35</td><td>$162.35</td><td class="warn-val">19.33</td><td>21.33</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">У Bayu только 6 продаж (1–17 мая). next_course count: 9 → 19 → 11 → 7 → 6 → <strong class="warn-val">1</strong>. Фактически перестал делать grad transitions в мае. Оставшиеся продажи — в основном prolongation с маленькими пакетами.</p>
+    </div>
+  </div>
+
+  <!-- What's not broken -->
+  <div class="section">
+    <div class="section-title">✅ Что работает нормально</div>
+    <div class="section-sub">Эти метрики здоровы во всех 6 месяцах включая май</div>
+    <div class="insight green" style="margin-bottom:8px">
+      <strong>PPL uplift</strong> оставался положительным каждый месяц включая май (+5.4%) — ценообразование не проблема.
+    </div>
+    <div class="insight green" style="margin-bottom:8px">
+      <strong>prolongation</strong> сохранил здоровый pkg и AOV uplift (+7.1% pkg в мае).
+    </div>
+    <div class="insight green" style="margin-bottom:8px">
+      <strong>Bundled транзакции</strong> удержали размер пакета в мае (29.5 vs prev 29.5).
+    </div>
+    <div class="insight green">
+      <strong>Age mix</strong> идентичен во всех 6 месяцах — демографического сдвига нет.
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="section">
+    <div class="section-title">🔎 Что расследовать</div>
+    <ul class="summary-list">
+      <li><strong>Почему non-bundled next_course pkg рухнул в мае?</strong> Bundled удержал, non-bundled — нет. Гипотезы: (а) bundling-промо забрал большие пакеты, оставив меньшие в non-bundled; (б) изменение скрипта или дефолтного пакета для non-bundled grad transitions.</li>
+      <li><strong>Почему доля Math Tutoring в next_course удвоилась?</strong> И почему pkg при переходе в MT уменьшился (prev 32 → curr 23.6)? (а) больше студентов из больших курсов переходит в MT, но дефолтное предложение MT — меньший пакет; (б) изменение ценообразования в MT.</li>
+      <li><strong>Sultan, Fatin, Bayu — что изменилось в их next_course питче в мае?</strong> Sultan: $358 / 35.6-урочные транзакции в апреле → $100 / 10.7 уроков в мае. Самый actionable индивидуальный кейс.</li>
+      <li><strong>Тренд или аномалия?</strong> Даже до мая pkg uplift постепенно снижался (апр +13.8% vs янв/фев +14–16%). Май резко сломал тренд. Полная картина — с данными по всему месяцу.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>
