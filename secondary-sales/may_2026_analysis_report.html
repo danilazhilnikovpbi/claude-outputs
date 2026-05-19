@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>May 2026 Secondary Sales — Why Revenue and AOV Fell</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+      color: #1a1a2e;
+      background: #f8f9fc;
+      line-height: 1.6;
+    }
+
+    /* Header */
+    .page-header {
+      background: linear-gradient(135deg, #1d3a5f 0%, #2563eb 100%);
+      color: #fff;
+      border-radius: 14px;
+      padding: 36px 40px 30px;
+      margin-bottom: 32px;
+    }
+    .page-header h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .page-header .meta {
+      font-size: 13px;
+      opacity: .75;
+      margin: 0;
+    }
+
+    /* Warning banner */
+    .warning-banner {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-left: 4px solid #f59e0b;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 28px;
+      font-size: 14px;
+      color: #856404;
+    }
+
+    /* TL;DR box */
+    .tldr {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 32px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .tldr h2 {
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: #64748b;
+      margin: 0 0 16px;
+    }
+
+    /* Section */
+    .section {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1d3a5f;
+      margin: 0 0 6px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #475569;
+      margin: 20px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    /* Tables */
+    .tbl-wrap { overflow-x: auto; margin: 12px 0 16px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      background: #f1f5f9;
+      color: #374151;
+      font-weight: 600;
+      padding: 9px 12px;
+      text-align: left;
+      border-bottom: 2px solid #cbd5e1;
+      white-space: nowrap;
+    }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e9edf4;
+      color: #374151;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f8fafd; }
+
+    /* May row highlight */
+    tr.may-row td {
+      background: #fff8f0;
+      border-left: 3px solid #f59e0b;
+      font-weight: 600;
+    }
+    tr.may-row td:first-child { padding-left: 10px; }
+
+    /* Value styling */
+    .warn-val { color: #dc2626; font-weight: 700; }
+    .good-val { color: #16a34a; font-weight: 700; }
+    .neutral-val { color: #374151; }
+
+    /* Insight boxes */
+    .insight {
+      border-radius: 8px;
+      padding: 13px 16px;
+      margin: 12px 0;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    .insight.blue  { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e40af; }
+    .insight.orange{ background: #fff7ed; border-left: 3px solid #f97316; color: #9a3412; }
+    .insight.green { background: #f0fdf4; border-left: 3px solid #22c55e; color: #14532d; }
+    .insight.red   { background: #fef2f2; border-left: 3px solid #ef4444; color: #7f1d1d; }
+
+    /* Ordered insights list */
+    .findings-list { margin: 0; padding-left: 20px; }
+    .findings-list li { margin-bottom: 10px; font-size: 14px; }
+
+    /* Code spans */
+    code {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 12.5px;
+      color: #0f172a;
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+      margin-left: 6px;
+    }
+    .badge.red { background: #fee2e2; color: #dc2626; }
+    .badge.green { background: #dcfce7; color: #16a34a; }
+    .badge.orange { background: #ffedd5; color: #ea580c; }
+
+    /* TOC */
+    .toc {
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 28px;
+      font-size: 13.5px;
+    }
+    .toc h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: #64748b; }
+    .toc ol { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 5px; }
+    .toc a { color: #2563eb; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* Key decomposition highlight */
+    .key-section { border: 2px solid #f97316; }
+    .key-section h2 { color: #c2410c; border-bottom-color: #fed7aa; }
+    .key-badge {
+      display: inline-block;
+      background: #f97316;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    p { margin: 10px 0; font-size: 14px; }
+    blockquote {
+      margin: 14px 0;
+      padding: 12px 16px;
+      background: #f8f9fc;
+      border-left: 3px solid #94a3b8;
+      color: #475569;
+      font-size: 13.5px;
+      border-radius: 0 6px 6px 0;
+    }
+    hr { border: none; border-top: 1px solid #e2e8f0; margin: 28px 0; }
+  </style>
+</head>
+<body>
+
+<!-- Page header -->
+<div class="page-header">
+  <h1>May 2026 Secondary Sales — Why Revenue and AOV Fell</h1>
+  <p class="meta">Data: Fact_Payments_2026.csv &nbsp;·&nbsp; Dec 2025 – 17 May 2026 &nbsp;·&nbsp; 3,975 secondary sales rows &nbsp;·&nbsp; All amounts USD at 17,000 IDR/USD</p>
+</div>
+
+<!-- Warning -->
+<div class="warning-banner">
+  ⚠️ <strong>May data ends on 17 May 2026 (17 days of 31).</strong> Half of the raw monthly revenue gap vs Apr is simply fewer days. The structural problem is in AOV, not in sales count per day.
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#tldr">TL;DR — Three things drove the May AOV drop</a></li>
+    <li><a href="#q1">Q1 — Monthly sales comparison</a></li>
+    <li><a href="#q2">Q2 — Price per lesson: current vs prior</a></li>
+    <li><a href="#q3">Q3 — Package: current vs previous + direction split</a></li>
+    <li><a href="#q4">Q4 — Manager performance by month</a></li>
+    <li><a href="#q5">Q5 — Top DJF managers vs Apr-May</a></li>
+    <li><a href="#q6">Q6 — Package share + price by month</a></li>
+    <li><a href="#q7">Q7 — Group type share, AOV, PPL, package</a></li>
+    <li><a href="#q8">Q8 — Bundling share</a></li>
+    <li><a href="#q9">Q9 — Age bucket share</a></li>
+    <li><a href="#decomp">KEY DECOMPOSITION — type_invoice</a></li>
+    <li><a href="#insights">Insights &amp; recommended next investigations</a></li>
+  </ol>
+</div>
+
+<!-- TL;DR -->
+<div class="tldr" id="tldr">
+  <h2>TL;DR — Three things drove the May AOV drop</h2>
+  <p>Comparing <strong>Apr 1–17 vs May 1–17</strong> (apples-to-apples, same days of month):</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>Apr 1–17</th><th>May 1–17</th><th>Delta</th></tr></thead>
+      <tbody>
+        <tr><td>Sales</td><td>345</td><td>359</td><td class="good-val">+14 (+4%) ✅</td></tr>
+        <tr><td>Revenue (USD)</td><td>$69,605</td><td>$67,138</td><td class="warn-val">−$2,467 (−3.5%)</td></tr>
+        <tr><td>AOV</td><td>$201.75</td><td>$187.01</td><td class="warn-val">−$14.74 (−7.3%) ⚠️</td></tr>
+        <tr><td>Avg package (lessons)</td><td>22.02</td><td>20.25</td><td class="warn-val">−1.77 lessons (−8%)</td></tr>
+        <tr><td>Price per lesson</td><td>$9.93</td><td>$9.79</td><td>−$0.14 (−1.4%)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight orange"><strong>Volume is fine. AOV dropped because students bought smaller packages, not because price-per-lesson fell.</strong></div>
+  <p>Decomposition of the −$14.74 AOV gap by category, ranked by contribution:</p>
+  <ol class="findings-list">
+    <li><strong><code>next_course</code> collapse</strong> — graduation-stage sales had AOV $282 in Apr, only $212 in May (−25%). Avg package fell from 33 to 24 lessons. This single type contributed the largest drag.</li>
+    <li><strong>Package mix shift</strong> — <code>25-32 lesson</code> packages share fell from 9.6% → 4.7% (–$12.6 contribution). Package <code>41+</code> (48/80 lesson bundles) share fell from 5.5% → 3.6% (–$9.5). Partly offset by package <code>40</code> growing (+$11.3) and package <code>10</code> growing (+$3.6).</li>
+    <li><strong>Manager performance regressions</strong> — four managers (Sultan, Fatin, Amel, Bayu) saw AOV drops of 25–59% individually. Together they contributed about –$31 to the AOV change.</li>
+  </ol>
+</div>
+
+<!-- Q1 -->
+<div class="section" id="q1">
+  <h2>Q1 — Monthly sales comparison</h2>
+  <h3>Full months (uncorrected — May is partial)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Sales</th><th>Students</th><th>Revenue $</th><th>AOV $</th><th>Avg pkg</th><th>PPL $</th><th>Days</th><th>Rev/day $</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>820</td><td>799</td><td>159,118</td><td>194.05</td><td>22.52</td><td>9.19</td><td>31</td><td>5,133</td></tr>
+        <tr><td>2026-01</td><td>759</td><td>746</td><td>145,868</td><td>192.18</td><td>22.40</td><td>9.21</td><td>31</td><td>4,705</td></tr>
+        <tr><td>2026-02</td><td>681</td><td>672</td><td>132,670</td><td>194.82</td><td>21.53</td><td>9.35</td><td>28</td><td>4,738</td></tr>
+        <tr><td>2026-03</td><td>652</td><td>641</td><td>122,587</td><td>188.02</td><td>21.03</td><td>9.52</td><td>31</td><td>3,954</td></tr>
+        <tr><td>2026-04</td><td>704</td><td>693</td><td>138,497</td><td>196.73</td><td>21.54</td><td>10.15</td><td>30</td><td>4,617</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>359</td><td>355</td><td>67,138</td><td class="warn-val">187.01</td><td>20.25</td><td>9.79</td><td>17</td><td>3,949</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Days 1–17 only — fair comparison</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Sales</th><th>Revenue $</th><th>AOV $</th><th>Avg pkg</th><th>PPL $</th><th>Rev MoM %</th><th>AOV MoM %</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>440</td><td>80,201</td><td>182.28</td><td>21.18</td><td>9.14</td><td>—</td><td>—</td></tr>
+        <tr><td>2026-01</td><td>359</td><td>68,644</td><td>191.21</td><td>22.23</td><td>9.27</td><td>−14.4%</td><td class="good-val">+4.9%</td></tr>
+        <tr><td>2026-02</td><td>391</td><td>74,621</td><td>190.85</td><td>20.85</td><td>9.44</td><td class="good-val">+8.7%</td><td>−0.2%</td></tr>
+        <tr><td>2026-03</td><td>355</td><td>66,742</td><td>188.01</td><td>20.87</td><td>9.64</td><td>−10.6%</td><td>−1.5%</td></tr>
+        <tr><td>2026-04</td><td>345</td><td>69,605</td><td>201.75</td><td>22.02</td><td>9.93</td><td>+4.3%</td><td class="good-val">+7.3%</td></tr>
+        <tr class="may-row"><td>2026-05</td><td class="good-val">359</td><td>67,138</td><td class="warn-val">187.01</td><td>20.25</td><td>9.79</td><td class="warn-val">−3.5%</td><td class="warn-val">−7.3%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight blue">On a 1–17 basis, May sales count actually <strong>grew vs April</strong>. The revenue dip is entirely AOV-driven. The Apr→May AOV swing (−7.3%) is the deepest of the period.</div>
+</div>
+
+<!-- Q2 -->
+<div class="section" id="q2">
+  <h2>Q2 — Price per lesson: current purchase vs prior purchase</h2>
+  <p>For each sale, compared PPL of current purchase vs PPL of the same student's prior purchase.</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>N</th><th>PPL current</th><th>PPL prior</th><th>Delta abs</th><th>PPL curr MoM abs</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>805</td><td>$9.18</td><td>$8.74</td><td class="good-val">+$0.44</td><td>—</td></tr>
+        <tr><td>2026-01</td><td>747</td><td>$9.18</td><td>$8.70</td><td class="good-val">+$0.48</td><td>$0.00</td></tr>
+        <tr><td>2026-02</td><td>667</td><td>$9.31</td><td>$9.60</td><td>−$0.30</td><td>+$0.13</td></tr>
+        <tr><td>2026-03</td><td>643</td><td>$9.52</td><td>$9.20</td><td class="good-val">+$0.31</td><td>+$0.21</td></tr>
+        <tr><td>2026-04</td><td>693</td><td>$10.15</td><td>$9.49</td><td class="good-val">+$0.65</td><td>+$0.63</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>351</td><td>$9.76</td><td>$9.29</td><td class="good-val">+$0.46</td><td class="warn-val">−$0.39</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight green">Students still pay <strong>more per lesson at renewal than at their prior purchase</strong> (+$0.46 in May). The lift is normal — Dec–Apr range was +$0.31 to +$0.65. PPL itself dipped from Apr ($10.15) to May ($9.76), but this is <strong>not the main AOV story</strong>.</div>
+</div>
+
+<!-- Q3 -->
+<div class="section" id="q3">
+  <h2>Q3 — Package: current vs previous purchase + direction split</h2>
+  <h3>Average package — current vs prior, by month</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>N</th><th>Pkg curr</th><th>Pkg prev</th><th>Delta abs</th><th>MoM abs</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>820</td><td>22.52</td><td>19.48</td><td class="good-val"><strong>+3.04</strong></td><td>—</td></tr>
+        <tr><td>2026-01</td><td>756</td><td>22.36</td><td>19.92</td><td class="good-val">+2.43</td><td>−0.16</td></tr>
+        <tr><td>2026-02</td><td>681</td><td>21.53</td><td>19.12</td><td class="good-val">+2.40</td><td>−0.83</td></tr>
+        <tr><td>2026-03</td><td>650</td><td>20.94</td><td>18.71</td><td class="good-val">+2.23</td><td>−0.59</td></tr>
+        <tr><td>2026-04</td><td>703</td><td>21.52</td><td>20.11</td><td class="good-val">+1.41</td><td>+0.58</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>358</td><td>20.27</td><td>20.32</td><td class="warn-val"><strong>−0.05</strong></td><td class="warn-val">−1.25</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight red"><strong>Critical signal:</strong> For five months, students bought packages 1.4 to 3 lessons LARGER than their prior. In May, that delta collapsed to essentially zero (−0.05). <strong>Students stopped stepping up.</strong></div>
+
+  <h3>Direction split (share %)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Same</th><th>Upgrade</th><th>Downgrade</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>24.9%</td><td class="good-val"><strong>46.6%</strong></td><td>26.7%</td></tr>
+        <tr><td>2026-01</td><td>26.0%</td><td>43.0%</td><td>29.5%</td></tr>
+        <tr><td>2026-02</td><td>29.5%</td><td>39.4%</td><td>29.1%</td></tr>
+        <tr><td>2026-03</td><td>36.3%</td><td>36.0%</td><td>26.2%</td></tr>
+        <tr><td>2026-04</td><td>31.2%</td><td>37.9%</td><td>29.3%</td></tr>
+        <tr class="may-row"><td>2026-05</td><td class="warn-val">37.6%</td><td class="warn-val"><strong>29.8%</strong></td><td>30.4%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight orange"><strong>Upgrade share fell from 46.6% (Dec) to 29.8% (May)</strong> — a 17-point drop over five months. This is the structural trend behind everything else: fewer students step up to a bigger package at renewal.</div>
+</div>
+
+<!-- Q4 -->
+<div class="section" id="q4">
+  <h2>Q4 — Manager performance, sales × AOV × package × PPL by month</h2>
+  <p>Top 15 managers by total sales. Full tables in Excel sheet <code>5_Managers_x_Months</code>.</p>
+
+  <h3>AOV ($) by manager and month</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Manager</th><th>Dec</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th></tr></thead>
+      <tbody>
+        <tr><td>Sultan</td><td>185</td><td>172</td><td>185</td><td>200</td><td>244</td><td class="warn-val">113 ⚠️</td></tr>
+        <tr><td>Fatin</td><td>188</td><td>258</td><td>184</td><td>238</td><td>213</td><td class="warn-val">152 ⚠️</td></tr>
+        <tr><td>Amel</td><td>266</td><td>313</td><td>280</td><td>289</td><td>326</td><td class="warn-val">249</td></tr>
+        <tr><td>Rani</td><td>263</td><td>254</td><td>333</td><td>247</td><td>249</td><td>222</td></tr>
+        <tr><td>Owen</td><td>200</td><td>186</td><td>224</td><td>219</td><td>221</td><td class="good-val">266 ✅</td></tr>
+        <tr><td>Echa</td><td>151</td><td>159</td><td>160</td><td>116</td><td>130</td><td class="good-val">232 ✅</td></tr>
+        <tr><td>Abdul</td><td>214</td><td>160</td><td>158</td><td>137</td><td>160</td><td class="good-val">208 ✅</td></tr>
+        <tr><td>Dira</td><td>180</td><td>194</td><td>205</td><td>231</td><td>176</td><td>207</td></tr>
+        <tr><td>Niken</td><td>139</td><td>156</td><td>128</td><td>134</td><td>138</td><td>146</td></tr>
+        <tr><td>Nanda</td><td>155</td><td>144</td><td>164</td><td>160</td><td>177</td><td>150</td></tr>
+        <tr><td>Suci</td><td>186</td><td>154</td><td>150</td><td>149</td><td>150</td><td>147</td></tr>
+        <tr><td>Angel</td><td>261</td><td>200</td><td>250</td><td>217</td><td>243</td><td class="good-val">293</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Sales count by manager and month</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Manager</th><th>Dec</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th></tr></thead>
+      <tbody>
+        <tr><td>Suci</td><td>40</td><td>56</td><td>62</td><td>50</td><td>39</td><td>22</td></tr>
+        <tr><td>Niken</td><td>44</td><td>50</td><td>48</td><td>40</td><td>49</td><td>21</td></tr>
+        <tr><td>Fatin</td><td>53</td><td>57</td><td>39</td><td>27</td><td>43</td><td>18</td></tr>
+        <tr><td>Dira</td><td>63</td><td>38</td><td>27</td><td>30</td><td>43</td><td>21</td></tr>
+        <tr><td>Abdul</td><td>32</td><td>38</td><td>27</td><td>48</td><td>39</td><td>29</td></tr>
+        <tr><td>Maida</td><td>43</td><td>37</td><td>27</td><td>30</td><td>45</td><td>27</td></tr>
+        <tr><td>Sultan</td><td>52</td><td>40</td><td>31</td><td>32</td><td>29</td><td class="warn-val">11 ⚠️</td></tr>
+        <tr><td>Owen</td><td>50</td><td>44</td><td>34</td><td>25</td><td>35</td><td>18</td></tr>
+        <tr><td>Rani</td><td>42</td><td>35</td><td>33</td><td>32</td><td>37</td><td>15</td></tr>
+        <tr><td>Nanda</td><td>40</td><td>41</td><td>35</td><td>33</td><td>33</td><td>22</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight blue">May counts will rise as the rest of the month closes — but for May 1–17 they are already compared like-for-like with the same 17-day window of other months.</div>
+</div>
+
+<!-- Q5 -->
+<div class="section" id="q5">
+  <h2>Q5 — Top Dec-Jan-Feb managers vs Apr-May (AOV &amp; sales/month)</h2>
+  <p>Top 10 managers by DJF sales count, comparing periods:</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Manager</th><th>Sales/mo DJF</th><th>Sales/mo AprMay</th><th>AOV DJF</th><th>AOV AprMay</th><th>AOV change %</th></tr></thead>
+      <tbody>
+        <tr><td>Rani</td><td>36.7</td><td>26.0</td><td>$281</td><td>$241</td><td class="warn-val">−14.2% ⚠️</td></tr>
+        <tr><td>Fatin</td><td>49.7</td><td>30.5</td><td>$214</td><td>$195</td><td class="warn-val">−9.0%</td></tr>
+        <tr><td>Suci</td><td>52.7</td><td>30.5</td><td>$161</td><td>$149</td><td>−7.1%</td></tr>
+        <tr><td>Dira</td><td>42.7</td><td>32.0</td><td>$190</td><td>$186</td><td>−1.9%</td></tr>
+        <tr><td>Niken</td><td>47.3</td><td>35.0</td><td>$141</td><td>$141</td><td>−0.4%</td></tr>
+        <tr><td>Amel</td><td>36.7</td><td>23.0</td><td>$285</td><td>$306</td><td class="good-val">+7.3%</td></tr>
+        <tr><td>Angel</td><td>39.3</td><td>21.5</td><td>$237</td><td>$257</td><td class="good-val">+8.4%</td></tr>
+        <tr><td>Nanda</td><td>38.7</td><td>27.5</td><td>$154</td><td>$166</td><td class="good-val">+8.1%</td></tr>
+        <tr><td>Sultan</td><td>41.0</td><td>20.0</td><td>$181</td><td>$208</td><td class="good-val">+14.9%</td></tr>
+        <tr><td>Owen</td><td>42.7</td><td>26.5</td><td>$202</td><td>$236</td><td class="good-val">+17.0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight blue">Sales per month dropped for ALL top-10 DJF managers in Apr-May (May is 17 days). But AOV split: Rani, Fatin, Suci weakened on AOV. Sultan, Owen, Amel, Angel, Nanda <strong>strengthened on AOV vs DJF</strong>. The story is not a uniform manager collapse — it's specific people.</div>
+  <blockquote><strong>Sultan caveat:</strong> positive vs DJF average ($208 &gt; $181), but his May 1–17 alone was <strong class="warn-val">$113 with 11 sales</strong> (vs $244 / 29 sales in Apr). The May number is what dragged AOV — see Sheet <code>2_AOV_Decomposition</code> row for him.</blockquote>
+</div>
+
+<!-- Q6 -->
+<div class="section" id="q6">
+  <h2>Q6 — Package share + price by month</h2>
+  <h3>Package bucket share (%)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>4-7</th><th>8</th><th>10</th><th>12-16</th><th>18-24</th><th>25-32</th><th>40</th><th>41+</th><th>other</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>2.0</td><td>13.2</td><td>16.0</td><td>9.3</td><td>20.5</td><td>8.9</td><td>10.4</td><td>5.2</td><td>14.5</td></tr>
+        <tr><td>2026-01</td><td>1.4</td><td>10.7</td><td>20.4</td><td>11.4</td><td>19.5</td><td>10.3</td><td>11.2</td><td>4.7</td><td>10.4</td></tr>
+        <tr><td>2026-02</td><td>1.0</td><td>10.4</td><td>21.7</td><td>13.7</td><td>19.8</td><td>10.3</td><td>12.0</td><td>3.5</td><td>7.6</td></tr>
+        <tr><td>2026-03</td><td>0.9</td><td>12.4</td><td>25.5</td><td>11.7</td><td>17.2</td><td>7.7</td><td>12.0</td><td>3.8</td><td>8.8</td></tr>
+        <tr><td>2026-04</td><td>1.3</td><td>8.8</td><td>26.6</td><td>12.2</td><td>17.9</td><td>8.7</td><td>10.5</td><td>4.4</td><td>9.6</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>0.8</td><td>9.5</td><td class="warn-val">29.8</td><td>13.3</td><td>18.9</td><td class="warn-val">4.7</td><td class="good-val">14.2</td><td class="warn-val">2.5</td><td>6.3</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>PPL ($) by package bucket</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>8</th><th>10</th><th>12-16</th><th>18-24</th><th>25-32</th><th>40</th><th>41+</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>9.22</td><td>9.54</td><td>8.65</td><td>9.08</td><td>7.88</td><td>8.57</td><td>8.09</td></tr>
+        <tr><td>2026-01</td><td>8.94</td><td>10.44</td><td>8.85</td><td>8.98</td><td>8.06</td><td>7.86</td><td>8.31</td></tr>
+        <tr><td>2026-02</td><td>9.38</td><td>9.74</td><td>9.06</td><td>9.41</td><td>9.04</td><td>8.96</td><td>8.19</td></tr>
+        <tr><td>2026-03</td><td>9.33</td><td>10.13</td><td>8.92</td><td>9.69</td><td>8.94</td><td>8.65</td><td>7.39</td></tr>
+        <tr><td>2026-04</td><td>9.44</td><td>10.66</td><td>8.69</td><td>10.04</td><td>8.43</td><td>9.01</td><td>7.47</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>9.26</td><td>10.02</td><td>8.91</td><td>9.71</td><td>7.84</td><td>9.39</td><td>7.77</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight blue">Package mix shifted heavily toward <strong>10-lesson</strong> and <strong>40-lesson</strong> packages, away from 25-32 and 41+. The PPL within each bucket is roughly stable — pricing didn't change. Pkg 10 PPL is highest ($10), pkg 41+ lowest ($7.5–8) — typical volume-discount pattern.</div>
+</div>
+
+<!-- Q7 -->
+<div class="section" id="q7">
+  <h2>Q7 — Group type share, AOV, PPL, package</h2>
+  <h3>Share (%)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Group</th><th>Premium</th><th>Private</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td class="warn-val"><strong>63.6</strong></td><td>17.7</td><td>18.8</td></tr>
+        <tr><td>2026-01</td><td>60.4</td><td>18.5</td><td>21.1</td></tr>
+        <tr><td>2026-02</td><td>56.8</td><td>23.2</td><td>20.0</td></tr>
+        <tr><td>2026-03</td><td>56.8</td><td>23.3</td><td>19.8</td></tr>
+        <tr><td>2026-04</td><td>51.4</td><td>25.9</td><td>22.7</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>49.3</td><td class="good-val">29.0</td><td>21.7</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>AOV ($) by group_type</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Group</th><th>Premium</th><th>Private</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>156</td><td>199</td><td>318</td></tr>
+        <tr><td>2026-01</td><td>157</td><td>175</td><td>308</td></tr>
+        <tr><td>2026-02</td><td>149</td><td>198</td><td>318</td></tr>
+        <tr><td>2026-03</td><td>148</td><td>187</td><td>304</td></tr>
+        <tr><td>2026-04</td><td>162</td><td>192</td><td>280</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>149</td><td>185</td><td class="warn-val">276</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight orange">Group share fell from 64% (Dec) to 49% (May), Premium grew from 18% to 29%. Premium has higher AOV than Group, so this mix shift is positive for AOV. BUT <strong>Private AOV slid from $318 (Dec) to $276 (May)</strong> — that's a $42 drop, −13%. Private PPL is stable around $13.30–14.58; the drop is package-driven (avg pkg in Private fell from 23 → 21).</div>
+</div>
+
+<!-- Q8 -->
+<div class="section" id="q8">
+  <h2>Q8 — Bundling share</h2>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>Bundled %</th><th>Bundled count</th><th>Not bundled count</th><th>Bundled AOV</th><th>Not bundled AOV</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>13.4</td><td>110</td><td>710</td><td>$199</td><td>$193</td></tr>
+        <tr><td>2026-01</td><td>11.6</td><td>88</td><td>671</td><td>$217</td><td>$189</td></tr>
+        <tr><td>2026-02</td><td>16.0</td><td>109</td><td>572</td><td>$211</td><td>$192</td></tr>
+        <tr><td>2026-03</td><td>17.9</td><td>117</td><td>535</td><td>$186</td><td>$189</td></tr>
+        <tr><td>2026-04</td><td>17.8</td><td>125</td><td>579</td><td>$203</td><td>$195</td></tr>
+        <tr class="may-row"><td>2026-05</td><td class="good-val">18.4</td><td>66</td><td>293</td><td class="good-val">$213</td><td>$181</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight green">Bundling adoption is growing steadily (13% → 18%). Bundled AOV is higher than non-bundled in May ($213 vs $181). <strong>Bundling is NOT a contributor to the May decline</strong> — it's actually a stabilizer.</div>
+  <blockquote>The <code>Bundling</code> field has only <code>True</code> and <code>NaN</code> values. <code>NaN</code> was treated as "Not bundled." <strong>Please confirm</strong> whether <code>NaN</code> should mean "not bundled" or "unknown/missing data." If <code>NaN</code> means "unknown", the bundled share analysis needs a caveat.</blockquote>
+</div>
+
+<!-- Q9 -->
+<div class="section" id="q9">
+  <h2>Q9 — Age bucket share</h2>
+  <h3>Share (%)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>≤7</th><th>8-9</th><th>10-11</th><th>12-13</th><th>14-15</th><th>16+</th><th>unknown</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>20.4</td><td>20.7</td><td>27.3</td><td>18.7</td><td>5.5</td><td>2.7</td><td>4.8</td></tr>
+        <tr><td>2026-01</td><td>21.5</td><td>21.3</td><td>26.2</td><td>17.9</td><td>7.1</td><td>1.7</td><td>4.2</td></tr>
+        <tr><td>2026-02</td><td>21.0</td><td>24.2</td><td>22.5</td><td>17.6</td><td>6.8</td><td>2.8</td><td>5.1</td></tr>
+        <tr><td>2026-03</td><td>20.7</td><td>21.3</td><td>23.5</td><td>19.0</td><td>7.4</td><td>2.3</td><td>5.8</td></tr>
+        <tr><td>2026-04</td><td>20.2</td><td>21.2</td><td>23.7</td><td>18.6</td><td>7.8</td><td>3.3</td><td>5.3</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>21.2</td><td>23.7</td><td>26.2</td><td>15.0</td><td>7.5</td><td>2.2</td><td>4.2</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="insight green">Age mix is remarkably stable across all six months. <strong>No structural shift in student demographics</strong> is contributing to the May AOV problem.</div>
+</div>
+
+<!-- KEY DECOMPOSITION -->
+<div class="section key-section" id="decomp">
+  <h2>KEY DECOMPOSITION — type_invoice <span class="key-badge">Most actionable</span></h2>
+  <p>This is the dimension that explains the bulk of the May AOV drop. <code>type_invoice</code> describes the kind of transaction:</p>
+  <ul style="font-size:14px; padding-left: 20px;">
+    <li><code>prolongation</code> — same-course renewal (typical small repurchase)</li>
+    <li><code>next_course</code> — student graduates to the next course level (typically the largest-AOV transaction)</li>
+    <li><code>first_additional</code> — mid-course top-up</li>
+  </ul>
+
+  <h3>Share (%)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>first_additional</th><th>next_course</th><th>prolongation</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>9.9</td><td>39.9</td><td>50.2</td></tr>
+        <tr><td>2026-01</td><td>11.6</td><td>36.5</td><td>51.9</td></tr>
+        <tr><td>2026-02</td><td>13.2</td><td>35.5</td><td>51.2</td></tr>
+        <tr><td>2026-03</td><td>13.5</td><td>32.7</td><td>53.8</td></tr>
+        <tr><td>2026-04</td><td>12.4</td><td>33.1</td><td>54.5</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>12.5</td><td class="warn-val">29.8</td><td>57.7</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>AOV ($) by type_invoice</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>first_additional</th><th>next_course</th><th>prolongation</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>178</td><td>258</td><td>169</td></tr>
+        <tr><td>2026-01</td><td>172</td><td>282</td><td>162</td></tr>
+        <tr><td>2026-02</td><td>197</td><td>284</td><td>159</td></tr>
+        <tr><td>2026-03</td><td>187</td><td>272</td><td>162</td></tr>
+        <tr><td>2026-04</td><td>221</td><td>282</td><td>162</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>195</td><td class="warn-val"><strong>212</strong></td><td class="good-val">174</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Avg package by type_invoice</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Month</th><th>first_additional</th><th>next_course</th><th>prolongation</th></tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>21.0</td><td>33.0</td><td>17.0</td></tr>
+        <tr><td>2026-01</td><td>21.4</td><td>33.6</td><td>17.3</td></tr>
+        <tr><td>2026-02</td><td>23.0</td><td>32.5</td><td>16.0</td></tr>
+        <tr><td>2026-03</td><td>22.7</td><td>31.8</td><td>16.4</td></tr>
+        <tr><td>2026-04</td><td>23.6</td><td>33.5</td><td>16.2</td></tr>
+        <tr class="may-row"><td>2026-05</td><td>23.0</td><td class="warn-val"><strong>24.3</strong></td><td>17.7</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight red" style="font-size:15px; padding: 16px 20px;">
+    <strong>This is the answer.</strong><br><br>
+    <code>next_course</code> is normally a high-ticket transaction: AOV $258–284 for five months, avg package 32–34 lessons.<br><br>
+    In May 1–17, <code>next_course</code> AOV crashed to <strong>$212 (−25% vs Apr)</strong> and avg package dropped to <strong>24 lessons (−27% vs Apr's 33.5)</strong>.<br><br>
+    <code>next_course</code> share of sales also fell: from 33% (Apr) to 30% (May).<br><br>
+    <code>prolongation</code> AOV actually IMPROVED in May ($162 → $174), and its share grew.<br><br>
+    <strong>Mechanism:</strong> Students who graduate to a new course in May are choosing smaller starting packages than before. They used to start the new course with 32–34 lessons; now it's 24. This is either pricing policy, a course-mix change in who's graduating, or a sales conversation difference.
+  </div>
+</div>
+
+<!-- Insights -->
+<div class="section" id="insights">
+  <h2>Insights &amp; recommended next investigations</h2>
+  <ol class="findings-list">
+    <li>
+      <strong>Investigate <code>next_course</code> package-size policy in May.</strong> This is the single biggest leverage point. Check: (a) Was there a promo or default-package change for grad transactions? (b) Are managers proposing smaller starter packages on next-course sales? (c) Is the course-mix of graduating students different (e.g. more students graduating into Math Tutoring, which is 2×/week and tends toward smaller packages)?
+    </li>
+    <li>
+      <strong>Audit Sultan, Fatin, Amel, Bayu individually for May.</strong> Sultan went from $244 / 29 sales (Apr) to $113 / 11 sales (May). Fatin from $213 / 43 to $152 / 18. These are not gentle dips. Check if it's their course-mix or their package-recommendation behavior.
+    </li>
+    <li>
+      <strong>Upgrade share declining from 47% to 30% over 5 months is the structural trend</strong> behind everything else. This deserves its own investigation: are students less inclined to step up, or are they being offered the same package by default? Same-share growth from 25% to 38% suggests a habit of "renew what you had."
+    </li>
+    <li>
+      <strong>Private group_type AOV erosion (−13% Dec→May)</strong> is a slow leak that's separate from the May crash. Worth a deeper look — Private students have $13–14 PPL (highest tier), so any package shrinkage here costs disproportionately.
+    </li>
+    <li>
+      <strong>Confirm with full-month May data once available.</strong> The 1–17 window is fair-comparison, but the second half of May may behave differently (end-of-month spike historically). Re-run when full data is in.
+    </li>
+    <li>
+      <strong>Things that are NOT broken:</strong> bundling (growing, AOV-positive), age mix (stable), PPL (stable), volume (sales per day held up in May), <code>prolongation</code> type (actually improved).
+    </li>
+  </ol>
+
+  <div class="insight green" style="margin-top: 20px;">
+    ✅ <strong>What's working:</strong> Bundling growing 13%→18%, premium share growing, prolongation AOV up, sales count per day stable.
+  </div>
+  <div class="insight orange" style="margin-top: 8px;">
+    ⚠️ <strong>What needs investigation:</strong> next_course package collapse (−27% lessons), upgrade share decline (−17 pts over 5 months), Sultan/Fatin May performance.
+  </div>
+</div>
+
+<p style="font-size:12px; color:#94a3b8; text-align:center; margin-top: 40px;">Generated · May 2026 · Full analysis: May_2026_Secondary_Sales_Analysis.xlsx</p>
+
+</body>
+</html>
