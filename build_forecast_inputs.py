@@ -197,23 +197,66 @@ df = df[df['payment_updated_at'] <= DATA_CUTOFF].copy()
 df['segment'] = df.apply(classify_segment, axis=1)
 print(f"  Loaded {len(df):,} rows")
 
-# ── Авто-заполнение plan_counts из реальных первичных данных ──────────────────
-# Для месяцев прогноза которые ЕСТЬ в данных — используем реальные первичные
-# Это не "смотрим в будущее" — primary enrollment это входные данные модели
-_first_purch_raw = df.sort_values('payment_updated_at').groupby('student_id').first()
-_prim_raw = _first_purch_raw[_first_purch_raw['cat_payment'] == 'primary'].copy()
-_prim_raw['cohort_M'] = _prim_raw['payment_updated_at'].dt.to_period('M')
-_real_prim_counts = _prim_raw.groupby(['cohort_M','course_type','group_type']).size()
+# ── Авто-заполнение plan_counts из ПОЛНОГО CSV (без обрезки по data_cutoff) ────
+# КРИТИЧНО: plan_counts — это ВХОДНЫЕ ДАННЫЕ модели (сколько новых студентов пришло).
+# Без этого бэктест 2025 использовал бы 2026-дефолты, которые КАТАСТРОФИЧЕСКИ НЕВЕРНЫ:
+#   Jan 2025 реально: Ba/Pre=3, MT/Pri=1, Ba/Gro=1019
+#   Jan 2026 план:    Ba/Pre=294, MT/Pri=109, Ba/Gro=451
+# → MT dims не существовали в Q1 2025! Использование план=109/мес → фантомные secondary
+_df_full_for_plan = pd.read_csv(DATA_PATH, low_memory=False)
+_df_full_for_plan.columns = [c.replace('prolongation_test[','').replace(']','')
+                               for c in _df_full_for_plan.columns]
+_df_full_for_plan['payment_updated_at'] = pd.to_datetime(
+    _df_full_for_plan['payment_updated_at'], errors='coerce')
+_df_full_for_plan['course_type'] = (
+    _df_full_for_plan['full_course_name']
+    .str.contains('Math Tutoring', case=False, na=False)
+    .map({True:'MT', False:'Base'}))
+_gt2 = 'group_type_c' if 'group_type_c' in _df_full_for_plan.columns else None
+if _gt2:
+    _df_full_for_plan['group_type'] = (
+        _df_full_for_plan[_gt2].fillna('Unknown')
+        .replace({'Private Eng-Math Tut':'Private','Mini':'Premium','mini':'Premium'}))
+    _df_full_for_plan['group_type'] = _df_full_for_plan['group_type'].apply(
+        lambda x: x if x in ('Private','Premium','Group') else 'Unknown')
+else:
+    _df_full_for_plan['group_type'] = 'Unknown'
 
+_df_full_for_plan['is_prim_full'] = _df_full_for_plan['cat_payment'] == 'primary'
+_fp_full = _df_full_for_plan.sort_values('payment_updated_at').groupby('student_id').first()
+_prim_full = _fp_full[_fp_full['cat_payment'] == 'primary'].copy()
+_prim_full['cohort_M'] = _prim_full['payment_updated_at'].dt.to_period('M')
+_real_prim_counts = _prim_full.groupby(['cohort_M','course_type','group_type']).size()
+
+# Перезаписываем plan_counts для месяцев с реальными данными
+# КРИТИЧНО: сначала обнуляем ВСЕ forecast-месяцы которые есть в CSV,
+# потом заполняем реальными значениями. Иначе dims с 0 студентами
+# остаются с 2026-дефолтами (e.g. MT/Pre Jan-2025 = 127 вместо 0!)
+_forecast_months_set = set(FORECAST_MONTHS)
+_months_in_csv = set(str(cm) for (cm,_,_) in _real_prim_counts.index
+                      if str(cm) in _forecast_months_set)
+
+# Шаг 1: обнуляем все dim×month комбинации для месяцев которые есть в CSV
+_overwrite_count = 0
+for mstr in _months_in_csv:
+    for (ct_, gt_) in DIMS:
+        if (ct_, gt_) in PRIMARY_PLAN_COUNTS_DEFAULT and mstr in PRIMARY_PLAN_COUNTS_DEFAULT[(ct_, gt_)]:
+            PRIMARY_PLAN_COUNTS_DEFAULT[(ct_, gt_)][mstr] = 0
+            _overwrite_count += 1
+
+# Шаг 2: заполняем реальными значениями (sz > 0)
 for (cm, ct_, gt_), sz in _real_prim_counts.items():
     mstr = str(cm)
-    if mstr in PRIMARY_PLAN_COUNTS_DEFAULT.get((ct_, gt_), {}):
+    if (ct_, gt_) in PRIMARY_PLAN_COUNTS_DEFAULT and mstr in PRIMARY_PLAN_COUNTS_DEFAULT[(ct_, gt_)]:
         PRIMARY_PLAN_COUNTS_DEFAULT[(ct_, gt_)][mstr] = int(sz)
 
 _months_with_real_data = {str(cm) for (cm,_,_) in _real_prim_counts.index
                            if str(cm) in FORECAST_MONTHS}
 if _months_with_real_data:
-    print(f"  Auto-filled plan_counts from real primary data: {len(_months_with_real_data)} months")
+    print(f"  Auto-filled plan_counts from FULL CSV (real primary data): "
+          f"{len(_months_with_real_data)} months, {_overwrite_count} dim×month cells")
+else:
+    print(f"  No forecast months have real primary data in CSV → using plan defaults from Excel")
 
 # ── Ext-curve ─────────────────────────────────────────────────────────────────
 first_purch = df.sort_values('payment_updated_at').groupby('student_id').first()

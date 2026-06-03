@@ -157,21 +157,21 @@ def _load_inputs_excel():
         print(f'  Warning: could not open {INPUTS_EXCEL}: {e}')
         return overrides
 
-    # plan_counts sheet (rows = dims starting row 3, cols 2..13 = Jan-Dec)
+    # plan_counts sheet — читаем ПОЗИЦИОННО (col 1=Jan, col 2=Feb, ...)
+    # НЕ используем _M как ключи здесь — он может быть 2026 когда данные 2025!
+    # Маппинг на реальные FORECAST_MONTHS происходит ПОСЛЕ применения settings.
     if 'plan_counts' in _xl.sheetnames:
         ws = _xl['plan_counts']
         for row in ws.iter_rows(min_row=3, max_row=3+len(DIMS)-1):
             dim_label = str(row[0].value or '').strip()
             for (ct, gt) in DIMS:
                 if dim_label == f'{ct}/{gt}':
-                    vals = {}
-                    for ci, mstr in enumerate(_M):
+                    # Store as positional list (12 values), not month-keyed dict
+                    positional = []
+                    for ci in range(12):  # 12 months
                         v = row[ci+1].value
-                        if v is not None:
-                            try: vals[mstr] = int(float(v))
-                            except: pass
-                    if vals:
-                        overrides['plan_counts'][(ct,gt)] = vals
+                        positional.append(int(float(v)) if v is not None else None)
+                    overrides['plan_counts'][(ct,gt)] = positional  # list, not dict
                     break
 
     # package_dist sheet: cols Dim | Package | Probability | Note
@@ -300,12 +300,20 @@ if _fs and _fe:
             if mstr not in vals:
                 vals[mstr] = last_val  # flat continuation
 
-# Apply plan_counts overrides (after possible FORECAST_MONTHS update)
+# Apply plan_counts overrides — AFTER settings (so FORECAST_MONTHS is correct)
+# plan_counts from Excel is a positional list, map to actual FORECAST_MONTHS
 if _inp['plan_counts']:
-    for (ct, gt), month_vals in _inp['plan_counts'].items():
-        for mstr, v in month_vals.items():
-            PRIMARY_PLAN_COUNTS[(ct,gt)][mstr] = v
-    print(f'  Loaded plan_counts overrides from Excel')
+    for (ct, gt), positional in _inp['plan_counts'].items():
+        if isinstance(positional, list):
+            # Positional: map col i → FORECAST_MONTHS[i]
+            for i, v in enumerate(positional):
+                if i < len(FORECAST_MONTHS) and v is not None:
+                    PRIMARY_PLAN_COUNTS[(ct,gt)][FORECAST_MONTHS[i]] = v
+        else:
+            # Legacy dict format (backward compat)
+            for mstr, v in positional.items():
+                PRIMARY_PLAN_COUNTS[(ct,gt)][mstr] = v
+    print(f'  Loaded plan_counts from Excel → mapped to {FORECAST_MONTHS[0]}–{FORECAST_MONTHS[-1]}')
 
 _ext_curve_overrides     = _inp['ext_curve']
 _retention_overrides     = _inp['retention_by_renewal']
