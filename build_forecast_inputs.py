@@ -90,16 +90,60 @@ SHARES_DEFAULT = {
     'Present': 0.497, 'Earlier': 0.310, 'Reanim': 0.108, 'Upgrades': 0.085,
 }
 
-# Default PRIMARY_PLAN_COUNTS (Jan-Dec 2026)
-_M = FORECAST_MONTHS
-PRIMARY_PLAN_COUNTS_DEFAULT = {
-    ('Base','Private'): dict(zip(_M, [134,100,118,145,149,204,221,165,144,133,143,166])),
-    ('Base','Premium'): dict(zip(_M, [294,220,258,317,327,448,486,362,316,293,314,363])),
-    ('Base','Group'):   dict(zip(_M, [451,338,395,486,502,686,744,555,485,449,481,557])),
-    ('MT',  'Private'): dict(zip(_M, [109,116,137,154,159,209,155,155,137,123,126,159])),
-    ('MT',  'Premium'): dict(zip(_M, [127,135,160,180,186,244,181,180,160,143,147,186])),
-    ('MT',  'Group'):   dict(zip(_M, [127,135,160,180,186,244,181,180,160,143,147,186])),
+# ── Читаем настройки из существующего Excel (если есть) ──────────────────────
+_settings_from_excel = {}
+if os.path.exists(OUT_INPUTS):
+    try:
+        _xl_cfg = __import__('openpyxl').load_workbook(OUT_INPUTS, data_only=True)
+        if 'settings' in _xl_cfg.sheetnames:
+            for row in _xl_cfg['settings'].iter_rows(min_row=3):
+                param = str(row[0].value or '').strip()
+                val   = row[1].value
+                if param and val is not None and not param.startswith('──'):
+                    _settings_from_excel[param] = val
+        _xl_cfg.close()
+    except Exception:
+        pass
+
+# ── Применяем все настройки из Excel ДО загрузки данных ──────────────────────
+_fs = str(_settings_from_excel.get('forecast_start', '2026-01'))[:7]
+_fe = str(_settings_from_excel.get('forecast_end',   '2026-12'))[:7]
+FORECAST_MONTHS = [str(p) for p in pd.period_range(_fs, _fe, freq='M')]
+
+# Обновляем data_cutoff и cal_window если заданы пользователем
+_dc_override = _settings_from_excel.get('data_cutoff')
+if _dc_override:
+    DATA_CUTOFF_STR = str(_dc_override)[:10]
+
+_cws_override = _settings_from_excel.get('cal_window_start')
+_cwe_override = _settings_from_excel.get('cal_window_end')
+if _cws_override and _cwe_override:
+    CAL_WINDOW = [str(p) for p in pd.period_range(str(_cws_override)[:7],
+                                                    str(_cwe_override)[:7], freq='M')]
+
+print(f"Settings: data_cutoff={DATA_CUTOFF_STR}  cal={CAL_WINDOW[0]}–{CAL_WINDOW[-1]}"
+      f"  forecast={FORECAST_MONTHS[0]}–{FORECAST_MONTHS[-1]}")
+
+# Default PRIMARY_PLAN_COUNTS — для 2026 (hardcoded baseline)
+_M2026 = [f"2026-{m:02d}" for m in range(1, 13)]
+_PLAN_2026 = {
+    ('Base','Private'): dict(zip(_M2026, [134,100,118,145,149,204,221,165,144,133,143,166])),
+    ('Base','Premium'): dict(zip(_M2026, [294,220,258,317,327,448,486,362,316,293,314,363])),
+    ('Base','Group'):   dict(zip(_M2026, [451,338,395,486,502,686,744,555,485,449,481,557])),
+    ('MT',  'Private'): dict(zip(_M2026, [109,116,137,154,159,209,155,155,137,123,126,159])),
+    ('MT',  'Premium'): dict(zip(_M2026, [127,135,160,180,186,244,181,180,160,143,147,186])),
+    ('MT',  'Group'):   dict(zip(_M2026, [127,135,160,180,186,244,181,180,160,143,147,186])),
 }
+
+# PRIMARY_PLAN_COUNTS строится для фактического FORECAST_MONTHS
+# Для прошлых/текущих месяцев (есть в CSV) — заполнится реальными данными после загрузки
+# Для будущих — используем 2026 defaults или последнее известное значение
+PRIMARY_PLAN_COUNTS_DEFAULT = {}
+for dim in DIMS:
+    last_known = list(_PLAN_2026[dim].values())[-1]
+    PRIMARY_PLAN_COUNTS_DEFAULT[dim] = {}
+    for mstr in FORECAST_MONTHS:
+        PRIMARY_PLAN_COUNTS_DEFAULT[dim][mstr] = _PLAN_2026[dim].get(mstr, last_known)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DATA LOADING & CALIBRATION
@@ -151,6 +195,24 @@ def classify_segment(row):
 df = df[df['payment_updated_at'] <= DATA_CUTOFF].copy()
 df['segment'] = df.apply(classify_segment, axis=1)
 print(f"  Loaded {len(df):,} rows")
+
+# ── Авто-заполнение plan_counts из реальных первичных данных ──────────────────
+# Для месяцев прогноза которые ЕСТЬ в данных — используем реальные первичные
+# Это не "смотрим в будущее" — primary enrollment это входные данные модели
+_first_purch_raw = df.sort_values('payment_updated_at').groupby('student_id').first()
+_prim_raw = _first_purch_raw[_first_purch_raw['cat_payment'] == 'primary'].copy()
+_prim_raw['cohort_M'] = _prim_raw['payment_updated_at'].dt.to_period('M')
+_real_prim_counts = _prim_raw.groupby(['cohort_M','course_type','group_type']).size()
+
+for (cm, ct_, gt_), sz in _real_prim_counts.items():
+    mstr = str(cm)
+    if mstr in PRIMARY_PLAN_COUNTS_DEFAULT.get((ct_, gt_), {}):
+        PRIMARY_PLAN_COUNTS_DEFAULT[(ct_, gt_)][mstr] = int(sz)
+
+_months_with_real_data = {str(cm) for (cm,_,_) in _real_prim_counts.index
+                           if str(cm) in FORECAST_MONTHS}
+if _months_with_real_data:
+    print(f"  Auto-filled plan_counts from real primary data: {len(_months_with_real_data)} months")
 
 # ── Ext-curve ─────────────────────────────────────────────────────────────────
 first_purch = df.sort_values('payment_updated_at').groupby('student_id').first()
@@ -707,23 +769,29 @@ for c, h in zip([1,2,3], ['Параметр', 'Значение', 'Описан�
     wc(ws_cfg, 2, c, h, 'dblue', bold=True, align='center', size=9)
 ws_cfg.row_dimensions[2].height = 18
 
+# Используем значения из существующего Excel (если они были изменены пользователем)
+# Fallback — дефолты. Так пользовательские настройки не сбрасываются при пересборке.
+def _cfg(key, default):
+    v = _settings_from_excel.get(key)
+    return str(v)[:10] if v is not None else default
+
 _settings = [
     # ── Окно данных и прогноза ────────────────────────────────────────────────
     ('── ОКНО ДАННЫХ И ПРОГНОЗА ──', None, '', 'dblue'),
-    ('data_cutoff',    DATA_CUTOFF_STR,
+    ('data_cutoff',    _cfg('data_cutoff', DATA_CUTOFF_STR),
      'Дата последних данных. Месяцы ДО этой даты используют режим data/blend. '
-     'Например: 2026-01-31 = данные по январь, прогноз с февраля.', 'edit'),
-    ('cal_window_start', CAL_WINDOW[0],
+     'Например: 2024-12-31 = данные по декабрь 2024, прогноз с января 2025.', 'edit'),
+    ('cal_window_start', _cfg('cal_window_start', CAL_WINDOW[0]),
      'Начало окна калибровки рейтов/долей/AOV. Формат: YYYY-MM.', 'edit'),
-    ('cal_window_end',   CAL_WINDOW[-1],
+    ('cal_window_end',   _cfg('cal_window_end', CAL_WINDOW[-1]),
      'Конец окна калибровки. По умолчанию — последний полный месяц до data_cutoff.', 'edit'),
-    ('forecast_start', '2026-01',
-     'Первый месяц в выводе (может быть в прошлом — тогда показывается факт). Формат: YYYY-MM.', 'edit'),
-    ('forecast_end',   '2026-12',
+    ('forecast_start', _cfg('forecast_start', str(FORECAST_MONTHS[0])),
+     'Первый месяц прогноза. Формат: YYYY-MM.', 'edit'),
+    ('forecast_end',   _cfg('forecast_end', str(FORECAST_MONTHS[-1])),
      'Последний месяц прогноза. Например: 2027-05 = прогноз на 12 мес. вперёд от data_cutoff.', 'edit'),
     # ── AOV коррекция ─────────────────────────────────────────────────────────
     ('── КОРРЕКЦИЯ AOV ──', None, '', 'dblue'),
-    ('aov_adjustment_factor', 1.10,
+    ('aov_adjustment_factor', float(_settings_from_excel.get('aov_adjustment_factor', 1.10)),
      '❗ ПОЧЕМУ AOV может отличаться от факта:\n'
      '1. Цены calibrated на среднем (mean) — чувствительно к выбросам и сезонности.\n'
      '2. Пакеты pkg=999 (кастомные) исключены из калибровки — реальный AOV выше.\n'
@@ -732,7 +800,7 @@ _settings = [
      '→ Поставь 1.0 чтобы без коррекции. Меняй под обновлённые данные.', 'edit'),
     # ── Рост цен ──────────────────────────────────────────────────────────────
     ('── РОСТ ЦЕН ──', None, '', 'dblue'),
-    ('price_growth_pct_per_quarter', 0.03,
+    ('price_growth_pct_per_quarter', float(_settings_from_excel.get('price_growth_pct_per_quarter', 0.03)),
      'Рост цены за урок в квартал (3% = +3%/квартал). База = Q3 2025.', 'edit'),
     ('price_base_year',    2025,
      'Год базового периода для роста цен.', 'lock'),

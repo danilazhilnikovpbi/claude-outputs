@@ -381,7 +381,7 @@ df['segment'] = df.apply(classify_segment, axis=1)
 print(f'Loaded: {len(df):,} rows  |  cutoff: {DATA_CUTOFF.date()}')
 print(f'Last paid month: {df["paid_M"].max()}')
 
-# Actuals (for Jan-May comparison)
+# Актуалы (только из данных до cutoff — не "заглядываем вперёд")
 actuals_rev = (df[df['is_sec'] & df['paid_M'].notna()]
                .groupby('paid_M')['usd'].sum())
 actuals_n   = (df[df['is_sec'] & df['paid_M'].notna()]
@@ -437,7 +437,17 @@ hist_cohort_by_dim: dict = {}
 for (cm, ct_, gt_), sz in _hist_cohort_series.items():
     hist_cohort_by_dim.setdefault((ct_, gt_), {})[cm] = int(sz)
 
-plan_future_cohorts_set = set(pd.period_range(PLAN_COHORT_START, "2026-12", freq='M'))
+# ── Плановые когорты — динамически от data_cutoff+1 до конца прогноза ─────────
+# PLAN_COHORT_START автоматически = data_cutoff + 1 месяц
+# Значения берутся из PRIMARY_PLAN_COUNTS (лист plan_counts в Excel)
+_cutoff_period  = pd.Period(DATA_CUTOFF_STR[:7])
+_forecast_end_p = pd.Period(FORECAST_MONTHS[-1])
+
+PLAN_COHORT_START = str(_cutoff_period + 1)
+plan_future_cohorts_set = set(pd.period_range(PLAN_COHORT_START,
+                                               str(_forecast_end_p), freq='M'))
+print(f'Plan cohorts range: {PLAN_COHORT_START} → {str(_forecast_end_p)} '
+      f'({len(plan_future_cohorts_set)} months, from plan_counts Excel)')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CALIBRATION 1: SEGMENT SHARES
@@ -739,12 +749,13 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
             lag = (m.year - C_m.year) * 12 + (m.month - C_m.month)
             if lag in ext_curve:
                 ext_sales += sz * ext_curve[lag]
-        # Plan cohorts Jun-Dec 2026
-        for mstr_c, cnt in PRIMARY_PLAN_COUNTS.get((ct, gt), {}).items():
-            C = pd.Period(mstr_c)
-            if C not in plan_future_cohorts_set or C >= m: continue
+        # Plan cohorts (data_cutoff+1 → forecast_end) — из PRIMARY_PLAN_COUNTS (Excel)
+        for C in plan_future_cohorts_set:
+            if C >= m: continue
             lag = (m.year - C.year) * 12 + (m.month - C.month)
-            if lag in ext_curve:
+            if lag not in ext_curve: continue
+            cnt = PRIMARY_PLAN_COUNTS.get((ct, gt), {}).get(str(C))
+            if cnt:
                 ext_sales += cnt * ext_curve[lag]
         # pool_display = ext_sales / rate (pipeline equivalent)
         r = rates.get((ct, gt), glob_rate)
