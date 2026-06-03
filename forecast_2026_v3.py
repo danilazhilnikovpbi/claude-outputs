@@ -353,9 +353,9 @@ def load_data():
             lambda x: x if x in ('Private','Premium','Group') else 'Unknown')
     else:
         df['group_type'] = 'Unknown'
-    # Package column
-    if 'Package' in df.columns:
-        df['pkg'] = pd.to_numeric(df['Package'], errors='coerce')
+    # Package size — ВСЕГДА из credits_recieved_package, НЕ из Package (Package=999 — заглушка!)
+    if 'credits_recieved_package' in df.columns:
+        df['pkg'] = pd.to_numeric(df['credits_recieved_package'], errors='coerce').abs()
     else:
         df['pkg'] = np.nan
     # payment_no
@@ -552,7 +552,7 @@ for pno in [1, 2, 3, 4, 5, 6, 7]:
 # CALIBRATION 4: PACKAGE DISTRIBUTION AND PRICE PER LESSON
 # ══════════════════════════════════════════════════════════════════════════════
 # Calibration from secondary sales Jul-Dec 2025 with valid package
-sec_cal_pkg = sec_cal[sec_cal['pkg'].notna() & (sec_cal['pkg'] > 0) & (sec_cal['pkg'] <= 300)].copy()
+sec_cal_pkg = sec_cal[sec_cal['pkg'].notna() & (sec_cal['pkg'] > 0) & (sec_cal['pkg'] <= 500)].copy()
 
 # Build pkg_dist: (ct, gt, pkg) -> probability (normalized per dim)
 pkg_dist_data   = {}   # raw counts by (ct, gt, pkg)
