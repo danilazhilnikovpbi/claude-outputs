@@ -857,6 +857,15 @@ _settings = [
     ('price_base_quarter', int(_settings_from_excel.get('price_base_quarter', 4)),
      'Квартал базового периода (4 = Q4 = окт-дек, рекомендуется). '
      'Диагностика: Q3→Q4 рост +15%, поэтому Q4 = более точная база для 2026.', 'lock'),
+    # ── Корректировка retention ────────────────────────────────────────────────
+    ('── КОРРЕКТИРОВКА RETENTION ──', None, '', 'dblue'),
+    ('retention_adjustment', float(_settings_from_excel.get('retention_adjustment', 1.0)),
+     '❗ ТРЕНД СНИЖЕНИЯ RETENTION:\n'
+     'May 2026 actual: retention=38.4% vs калибровка Jul-Dec 2025: 43.6% (-12%).\n'
+     'Retention постепенно снижается год к году.\n'
+     '→ 0.88 = умножить все retention[pno] на 0.88 (-12%)\n'
+     '→ 1.0  = без коррекции (использовать 2025 ставки)\n'
+     'Рекомендация для 2026 прогноза: попробуй 0.88-0.92.', 'edit'),
 ]
 
 ri = 3

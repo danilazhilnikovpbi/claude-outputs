@@ -271,6 +271,11 @@ _cfg = _inp.get('settings', {})
 # AOV adjustment factor (multiplier for all revenues)
 AOV_ADJ = float(_cfg.get('aov_adjustment_factor', 1.0))
 
+# Retention adjustment: multiplier for all retention_by_renewal values
+# May 2026 actual: retention=38.4% vs calibrated 43.6% (-12%)
+# Use <1.0 to account for declining renewal rates in 2026
+RETENTION_ADJ = float(_cfg.get('retention_adjustment', 1.0))
+
 # Price growth override
 _pgq = _cfg.get('price_growth_pct_per_quarter')
 if _pgq is not None:
@@ -749,14 +754,19 @@ DATA_MODES = {
     'blend': ['2026-05'],                                 # May
     'ext':   [f'2026-{m:02d}' for m in range(6, 13)],   # Jun-Dec
 }
-BLEND_SCALE = 31 / 28  # May: 28 days observed, 31 days in month (3 missing days)
+# Blend scaling: диагностика показала что (31/28) ЗАВЫШАЕТ предсказание.
+# pool × retention уже предсказывает полный месяц (все студенты в pipeline).
+# Scaling добавляет +10% сверху без пользы → убираем его.
+# Фактически: pool=2100, retention=43.6% → 915; actual_full_may=807 (retention упал до 38.4%)
+# Ошибка -12% = снижение retention 2026 vs 2025, а не проблема scaling.
+BLEND_SCALE = 1.0  # removed: was 31/28, но это давало +10% излишнего завышения
 
 def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
     """
     Returns (total_sec, pool_display, mode).
 
     mode='data'  (Jan-Apr): total_sec = Σ_n pool_by_pno[(m,ct,gt,n)] * retention[n]
-    mode='blend' (May):     same formula * BLEND_SCALE
+    mode='blend' (May):     то же, без масштабирования (BLEND_SCALE=1.0)
     mode='ext'   (Jun-Dec): total_sec = Σ_cohort cohort_size * ext_curve[lag]
     """
     mstr = str(m)
@@ -775,10 +785,10 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
                 except:
                     n_pool = 0
                 if n_pool > 0:
-                    # retention lookup: use retention_by_renewal for pno <= 15, else RETENTION_PNO_HIGH
+                    # retention lookup with optional RETENTION_ADJ multiplier
                     ret = retention_by_renewal.get(pno_raw,
                           retention_by_renewal.get(min(pno_raw, 15), RETENTION_PNO_HIGH))
-                    total_sec += n_pool * ret
+                    total_sec += n_pool * ret * RETENTION_ADJ
                     pool_total += n_pool
         else:
             # No pno breakdown: use flat rate
