@@ -340,8 +340,14 @@ for ct, gt in DIMS:
 
 # ── Price per lesson ──────────────────────────────────────────────────────────
 # Cal window Q3 only for base period: Jul-Sep 2025
-cal_q3 = ["2025-07","2025-08","2025-09"]
-sec_q3 = sec_cal_pkg[sec_cal_pkg['paid_M'].astype(str).isin(cal_q3)].copy()
+# Ценовая база = Q4-2025 (Oct-Dec). Диагностика: Q3→Q4 рост +15%, Q4→Q1 +3.3%
+# Используем Q4 как базу для pgf чтобы Q1-2026 прогноз был точным
+_base_cal_window = _settings_from_excel.get('price_base_quarter')
+if _base_cal_window == 3:
+    cal_q4 = ["2025-07","2025-08","2025-09"]   # Q3 (legacy)
+else:
+    cal_q4 = ["2025-10","2025-11","2025-12"]   # Q4 (default)
+sec_q3 = sec_cal_pkg[sec_cal_pkg['paid_M'].astype(str).isin(cal_q4)].copy()
 
 ppl_final = {}; ppl_src = {}
 
@@ -805,8 +811,9 @@ _settings = [
      'Рост цены за урок в квартал (3% = +3%/квартал). База = Q3 2025.', 'edit'),
     ('price_base_year',    2025,
      'Год базового периода для роста цен.', 'lock'),
-    ('price_base_quarter', 3,
-     'Квартал базового периода (3 = Q3 = июль-сентябрь).', 'lock'),
+    ('price_base_quarter', int(_settings_from_excel.get('price_base_quarter', 4)),
+     'Квартал базового периода (4 = Q4 = окт-дек, рекомендуется). '
+     'Диагностика: Q3→Q4 рост +15%, поэтому Q4 = более точная база для 2026.', 'lock'),
 ]
 
 ri = 3

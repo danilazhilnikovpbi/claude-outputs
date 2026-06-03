@@ -44,8 +44,10 @@ DATA_PATH = (
 )
 DATA_CUTOFF_STR  = "2026-05-28"
 CAL_WINDOW       = ["2025-07","2025-08","2025-09","2025-10","2025-11","2025-12"]
-# Q3 2025 = base period for price growth (Jul-Aug-Sep 2025)
-PRICE_BASE_QUARTER = 3   # Q3 2025 index (1-based: Q1=1, Q2=2, Q3=3, Q4=4)
+# Q4 2025 = base period for price growth (Oct-Nov-Dec 2025)
+# Диагностика показала: цены скакнули Q3→Q4 на +15%, потом Q4→Q1 стабилизировались (+3.3%)
+# Используем Q4 как базу → точность Q1-2026 AOV улучшается с -5% до ~0%
+PRICE_BASE_QUARTER = 4   # Q4 2025 (1-based: Q1=1, Q2=2, Q3=3, Q4=4)
 PRICE_BASE_YEAR    = 2025
 PRICE_GROWTH_PCT   = 0.03   # 3% per quarter
 
@@ -658,16 +660,61 @@ for ct, gt in DIMS:
     print(f'  {ct}/{gt}: top pkgs = ' + ' '.join(f'pkg{p}={v:.0%}' for p,v in top3))
 
 # ══════════════════════════════════════════════════════════════════════════════
+# ПРЯМОЙ AOV — calibrated directly from Q4-2025 secondary sales per (dim, seg)
+# Это точнее чем pkg × ppl: захватывает реальный mix пакетов Q4-2025
+# ══════════════════════════════════════════════════════════════════════════════
+_CAL_Q4 = ["2025-10","2025-11","2025-12"]   # Q4-2025 = ценовая база
+sec_q4_all = df[
+    df['is_sec'] &
+    df['paid_M'].astype(str).isin(_CAL_Q4) &
+    df['usd'].notna() &
+    df['segment'].notna()
+].copy()
+
+direct_aov_base   = {}   # (ct, gt, seg) → mean USD/sale in Q4-2025
+direct_aov_src    = {}
+_glob_q4          = sec_q4_all['usd'].mean() if len(sec_q4_all) > 0 else 180.0
+
+for ct, gt in DIMS:
+    for seg in SEGS:
+        key = (ct, gt, seg)
+        sub_dsg = sec_q4_all[(sec_q4_all['course_type']==ct) &
+                              (sec_q4_all['group_type']==gt) &
+                              (sec_q4_all['segment']==seg)]
+        if len(sub_dsg) >= 10:
+            direct_aov_base[key] = sub_dsg['usd'].mean()
+            direct_aov_src[key]  = f'Q4-2025 dim+seg n={len(sub_dsg)}'
+        else:
+            sub_dim = sec_q4_all[(sec_q4_all['course_type']==ct) & (sec_q4_all['group_type']==gt)]
+            if len(sub_dim) >= 5:
+                direct_aov_base[key] = sub_dim['usd'].mean()
+                direct_aov_src[key]  = f'Q4-2025 dim n={len(sub_dim)}'
+            else:
+                sub_seg = sec_q4_all[sec_q4_all['segment']==seg]
+                if len(sub_seg) >= 5:
+                    direct_aov_base[key] = sub_seg['usd'].mean()
+                    direct_aov_src[key]  = f'Q4-2025 global+seg n={len(sub_seg)}'
+                else:
+                    direct_aov_base[key] = _glob_q4
+                    direct_aov_src[key]  = f'Q4-2025 global fallback'
+
+print(f'\n-- Direct AOV base (Q4-2025) по dims:')
+for ct, gt in DIMS:
+    aovs = [direct_aov_base[(ct,gt,seg)] for seg in SEGS]
+    print(f'  {ct}/{gt}: ' + '  '.join(f'{seg}=${direct_aov_base[(ct,gt,seg)]:.0f}' for seg in SEGS))
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PRICE GROWTH FACTOR
 # ══════════════════════════════════════════════════════════════════════════════
 def _quarter_index(year: int, month: int) -> float:
     """Returns quarter number (fractional) from Q1 2025 = 1."""
     return (year - 2025) * 4 + (month - 1) // 3 + 1
 
-BASE_QUARTER_IDX = _quarter_index(PRICE_BASE_YEAR, 7)  # Q3 2025 = index 3
+_base_month = {1:1, 2:4, 3:7, 4:10}[PRICE_BASE_QUARTER]  # Q4=10 (October)
+BASE_QUARTER_IDX = _quarter_index(PRICE_BASE_YEAR, _base_month)
 
 def price_growth_factor(mstr: str) -> float:
-    """Growth factor relative to Q3 2025 base."""
+    """Growth factor relative to Q4-2025 base."""
     yr  = int(mstr[:4])
     mo  = int(mstr[5:7])
     q_idx = _quarter_index(yr, mo)
@@ -779,34 +826,29 @@ for mstr in FORECAST_MONTHS:
           f'  {sum(totals):>8.1f}  [{mode_tag}]')
 
 # ══════════════════════════════════════════════════════════════════════════════
-# REVENUE CALCULATION — PACKAGE-BASED
+# REVENUE CALCULATION — DIRECT AOV (Q4-2025 base × price growth)
+# Замена pkg×ppl подхода: берём прямой средний чек из данных Q4-2025
+# Это точнее т.к. захватывает реальный mix пакетов без упущений
 # ══════════════════════════════════════════════════════════════════════════════
 def calc_dim_revenue(total_sec: float, ct: str, gt: str, mstr: str) -> dict:
     """
-    Returns dict with keys:
-      total_rev, rev_by_seg, n_by_seg, aov, pkg_breakdown
+    Revenue = Σ_seg (total_sec × share[seg] × direct_aov_base[(ct,gt,seg)] × pgf × aov_adj)
+    direct_aov_base = mean USD per secondary sale in Q4-2025, per dim×seg
+    pgf = price_growth_factor(mstr): +3%/quarter from Q4-2025 base
     """
-    pgf = price_growth_factor(mstr)
+    pgf        = price_growth_factor(mstr)
     rev_by_seg = {}
     n_by_seg   = {}
 
     for seg in SEGS:
         seg_sec = total_sec * shares[seg]
-        seg_rev = 0.0
-        # Sum over packages
-        dim_pkgs = {k[2]: v for k, v in pkg_dist_final.items() if k[0]==ct and k[1]==gt}
-        for pkg_sz, pkg_prob in dim_pkgs.items():
-            n_pkg  = seg_sec * pkg_prob
-            ppl_v  = ppl_final.get((ct, gt, pkg_sz), 7.0)
-            rev_pkg = n_pkg * pkg_sz * ppl_v * pgf
-            seg_rev += rev_pkg
+        aov_v   = direct_aov_base.get((ct, gt, seg), _glob_q4)
+        seg_rev = seg_sec * aov_v * pgf * AOV_ADJ
         rev_by_seg[seg] = seg_rev
         n_by_seg[seg]   = seg_sec
 
-    total_rev = sum(rev_by_seg.values()) * AOV_ADJ  # apply AOV correction factor
-    # Scale rev_by_seg proportionally
-    rev_by_seg = {seg: v * AOV_ADJ for seg, v in rev_by_seg.items()}
-    aov = total_rev / total_sec if total_sec > 0 else 0.0
+    total_rev = sum(rev_by_seg.values())
+    aov       = total_rev / total_sec if total_sec > 0 else 0.0
     return {
         'total_rev': total_rev,
         'rev_by_seg': rev_by_seg,
