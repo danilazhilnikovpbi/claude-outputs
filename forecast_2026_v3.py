@@ -120,6 +120,16 @@ RETENTION_BY_PNO_DEFAULT = {
 # For pno >= 16 use this rate
 RETENTION_PNO_HIGH = 0.72
 
+# Three-pool rate defaults (calibrated from Jul-Dec 2025 diagnostic)
+RATE_PRESENT_DEFAULT = {1:0.1494, 2:0.2636, 3:0.3097, 4:0.3140, 5:0.4225, 6:0.3989,
+                        7:0.4495, 8:0.5156, 9:0.6383, 10:0.6111, 11:0.5758, 12:0.5000}
+RATE_EARLIER_DEFAULT = {1:0.0580, 2:0.1166, 3:0.1321, 4:0.1731, 5:0.1713, 6:0.2067,
+                        7:0.1957, 8:0.0536, 9:0.1111, 10:0.0312, 11:0.1304}
+RATE_REANIM_DEFAULT  = {1:0.0274, 2:0.0458, 3:0.0631, 4:0.0626, 5:0.0661, 6:0.0933,
+                        7:0.0870, 8:0.0926, 9:0.0714, 10:0.1379, 11:0.1333}
+# Historical segment shares (calibration baseline for three-pool scaling)
+HIST_SHARES = {'Present': 0.497, 'Earlier': 0.310, 'Reanim': 0.108, 'Upgrades': 0.085}
+
 # Prolongation rates (fallback)
 PROL_RATES_DEFAULT = {
     ('Base','Private'): 0.458, ('Base','Premium'): 0.365, ('Base','Group'): 0.446,
@@ -153,6 +163,7 @@ def _load_inputs_excel():
         'renewal_price':        {},   # (ct,gt,pkg) -> float  (price/lesson base)
         'retention_by_renewal': {},   # pno -> float  (global fallback, ALL rows)
         'retention_expanded':   {},   # (pno, ct, gt, pkg_bucket) -> float
+        'retention_3pool':      {'present': {}, 'earlier': {}, 'reanim': {}},
         'shares':               {},   # seg -> float
         'ext_curve':            {},   # lag_k -> float
         'rates':                {},   # (ct,gt) -> float
@@ -218,17 +229,47 @@ def _load_inputs_excel():
     # 'ALL' rows (ct=ALL, gt=ALL, pkg=ALL) → global fallback keyed by pno
     # pkg-specific rows → retention_expanded keyed by (pno, ct, gt, pkg_bucket)
     # Override (col 5) takes priority over Retention (col 4) if non-empty
+    # After a separator row starting with '━', THREE-POOL section follows:
+    #   Cols: pno(0) | rate_present(1) | rate_earlier_1(2) | rate_reanim_1(3) | ...
     if 'retention_by_renewal' in _xl.sheetnames:
         ws = _xl['retention_by_renewal']
+        _in_3pool_section = False
         for row in ws.iter_rows(min_row=4):
-            pno_v   = row[0].value
+            pno_v = row[0].value
+            # Detect THREE-POOL section separator
+            if pno_v is not None and str(pno_v).startswith('━'):
+                _in_3pool_section = True
+                continue
+            # Skip header row of three-pool section (non-numeric pno)
+            if _in_3pool_section:
+                if pno_v is None:
+                    continue
+                try:
+                    pno_int = int(pno_v)
+                except Exception:
+                    continue  # skip header/note rows
+                # Cols: pno | rate_present | rate_earlier_1 | rate_reanim_1 | ...
+                rp_v = row[1].value if len(row) > 1 else None
+                re_v = row[2].value if len(row) > 2 else None
+                rr_v = row[3].value if len(row) > 3 else None
+                if rp_v is not None:
+                    try: overrides['retention_3pool']['present'][pno_int] = float(rp_v)
+                    except Exception: pass
+                if re_v is not None:
+                    try: overrides['retention_3pool']['earlier'][pno_int] = float(re_v)
+                    except Exception: pass
+                if rr_v is not None:
+                    try: overrides['retention_3pool']['reanim'][pno_int] = float(rr_v)
+                    except Exception: pass
+                continue
+            # Normal retention section
+            if pno_v is None:
+                continue
             ct_v    = str(row[1].value or '').strip() if len(row) > 1 else ''
             gt_v    = str(row[2].value or '').strip() if len(row) > 2 else ''
             pkg_v   = row[3].value                    if len(row) > 3 else None
             rate_v  = row[4].value                    if len(row) > 4 else None
             over_v  = row[5].value                    if len(row) > 5 else None
-            if pno_v is None:
-                continue
             # Effective rate: override takes priority
             eff_v = over_v if (over_v is not None and over_v != '') else rate_v
             if eff_v is None:
@@ -358,6 +399,7 @@ if _inp['plan_counts']:
 _ext_curve_overrides        = _inp['ext_curve']
 _retention_overrides        = _inp['retention_by_renewal']
 _retention_expanded_from_xl = _inp['retention_expanded']
+_rate_3pool_from_xl         = _inp['retention_3pool']
 _pkg_dist_overrides         = _inp['package_dist']
 _renewal_price_overrides    = _inp['renewal_price']
 _shares_overrides           = _inp['shares']
@@ -531,6 +573,31 @@ if _s > 0: shares = {k: v/_s for k, v in shares.items()}
 print(f'\n-- Segment shares (global, {CAL_WINDOW[0]}-{CAL_WINDOW[-1]}, n={total_sec_cal})')
 for seg in SEGS:
     print(f'  {seg:<10}: {shares[seg]:>6.1%}  [{src_shares[seg]}]')
+
+# ── Three-pool effective rates (scaled by current shares vs historical baseline) ──
+_scale_present = shares.get('Present', 0.497) / HIST_SHARES['Present']
+_scale_earlier = shares.get('Earlier', 0.310) / HIST_SHARES['Earlier']
+_scale_reanim  = shares.get('Reanim',  0.108) / HIST_SHARES['Reanim']
+
+print(f'  3-pool scaling: present×{_scale_present:.2f} earlier×{_scale_earlier:.2f} reanim×{_scale_reanim:.2f}')
+
+rate_present_3pool = {}
+rate_earlier_3pool = {}
+rate_reanim_3pool  = {}
+for pno in range(1, 28):
+    _pno_key = min(pno, 15)
+    base_p = _rate_3pool_from_xl.get('present', {}).get(pno,
+             _rate_3pool_from_xl.get('present', {}).get(_pno_key,
+             RATE_PRESENT_DEFAULT.get(_pno_key, 0.15)))
+    base_e = _rate_3pool_from_xl.get('earlier', {}).get(pno,
+             _rate_3pool_from_xl.get('earlier', {}).get(_pno_key,
+             RATE_EARLIER_DEFAULT.get(_pno_key, 0.06)))
+    base_r = _rate_3pool_from_xl.get('reanim',  {}).get(pno,
+             _rate_3pool_from_xl.get('reanim',  {}).get(_pno_key,
+             RATE_REANIM_DEFAULT.get(_pno_key, 0.03)))
+    rate_present_3pool[pno] = base_p * _scale_present * RETENTION_ADJ
+    rate_earlier_3pool[pno] = base_e * _scale_earlier * RETENTION_ADJ
+    rate_reanim_3pool[pno]  = base_r * _scale_reanim  * RETENTION_ADJ
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CALIBRATION 2: PROLONGATION RATES (fallback when retention_by_renewal not used)
@@ -884,52 +951,54 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
     mstr = str(m)
 
     if mstr in DATA_MODES['data'] or mstr in DATA_MODES['blend']:
-        # Sum over payment_no × pkg_bucket buckets using retention_expanded (with fallback)
-        total_sec = 0.0
+        # Three-pool formula:
+        #   pool[T]   × rate_present  (paid in planned month)
+        #   pool[T+1] × rate_earlier  (paid one month early)
+        #   pool[T-1] × rate_reanim   (paid one month late)
+        total_sec  = 0.0
         pool_total = 0.0
+
         if len(pool_by_pno) > 0:
+            m_plus1  = m + 1
+            m_minus1 = m - 1
+
             for pno_raw in range(1, 28):
                 pno_f = float(pno_raw)
-                # Global fallback retention for this pno (Level-2 / Level-3)
-                ret_pno = (retention_by_renewal.get(pno_raw) or
-                           retention_by_renewal.get(min(pno_raw, 15), RETENTION_PNO_HIGH))
 
-                # ── Students with known pkg_bucket (use expanded retention) ──
-                n_with_pkg = 0
-                for pkg_b in PKG_BUCKETS:
-                    try:
-                        n_pkg = int(pool_by_pno_pkg.get((m, ct, gt, pno_f, float(pkg_b)), 0))
-                        if n_pkg == 0:
-                            n_pkg = int(pool_by_pno_pkg.get((m, ct, gt, pno_raw, pkg_b), 0))
-                    except Exception:
-                        n_pkg = 0
-                    if n_pkg > 0:
-                        # Fallback: Level-1 (pno,ct,gt,pkg) → Level-2/3 (pno global)
-                        ret = (retention_expanded.get((pno_raw, ct, gt, pkg_b)) or ret_pno)
-                        total_sec += n_pkg * ret * RETENTION_ADJ
-                        pool_total += n_pkg
-                        n_with_pkg += n_pkg
-
-                # ── Students with no pkg info: use global pno retention ───────
+                # pool[T] — students with planned renewal in month T
                 try:
-                    n_total_pno = int(pool_by_pno.get((m, ct, gt, pno_f), 0))
-                    if n_total_pno == 0:
-                        n_total_pno = int(pool_by_pno.get((m, ct, gt, pno_raw), 0))
+                    n_T = int(pool_by_pno.get((m,        ct, gt, pno_f), 0) or
+                              pool_by_pno.get((m,        ct, gt, pno_raw), 0))
                 except Exception:
-                    n_total_pno = 0
-                n_no_pkg = max(0, n_total_pno - n_with_pkg)
-                if n_no_pkg > 0:
-                    total_sec += n_no_pkg * ret_pno * RETENTION_ADJ
-                    pool_total += n_no_pkg
+                    n_T = 0
+                # pool[T+1] — students planned for T+1 who may pay early (in T)
+                try:
+                    n_T1 = int(pool_by_pno.get((m_plus1, ct, gt, pno_f), 0) or
+                               pool_by_pno.get((m_plus1, ct, gt, pno_raw), 0))
+                except Exception:
+                    n_T1 = 0
+                # pool[T-1] — students planned for T-1 who pay late (in T)
+                try:
+                    n_Tm1 = int(pool_by_pno.get((m_minus1, ct, gt, pno_f), 0) or
+                                pool_by_pno.get((m_minus1, ct, gt, pno_raw), 0))
+                except Exception:
+                    n_Tm1 = 0
+
+                rp = rate_present_3pool.get(pno_raw, rate_present_3pool.get(min(pno_raw, 15), 0.15))
+                re = rate_earlier_3pool.get(pno_raw, rate_earlier_3pool.get(min(pno_raw, 15), 0.06))
+                rr = rate_reanim_3pool.get(pno_raw,  rate_reanim_3pool.get(min(pno_raw, 15), 0.03))
+
+                total_sec  += n_T * rp + n_T1 * re + n_Tm1 * rr
+                pool_total += n_T + n_T1 * (re / rp if rp > 0 else 1) + n_Tm1 * (rr / rp if rp > 0 else 1)
         else:
             # No pno breakdown: use flat rate
-            raw_pool = float(pool_raw_dim.get((m, ct, gt), 0))
+            raw_pool  = float(pool_raw_dim.get((m, ct, gt), 0))
             flat_rate = rates.get((ct, gt), glob_rate)
-            total_sec = raw_pool * flat_rate
+            total_sec  = raw_pool * flat_rate
             pool_total = raw_pool
 
         if mstr in DATA_MODES['blend']:
-            total_sec *= BLEND_SCALE
+            total_sec  *= BLEND_SCALE
             pool_total *= BLEND_SCALE
             mode = 'blend'
         else:

@@ -311,6 +311,19 @@ pool_cal_df = pool_df[pool_df['planned_M'].astype(str).isin(CAL_WINDOW)]
 glob_pool   = len(pool_cal_df)
 glob_rate   = total_sec_cal / glob_pool if glob_pool > 0 else 0.20
 
+# ── seg_lag on sec_cal (used for three-pool rate calibration) ──────────────────
+sec_cal_for_3pool = df[
+    df['is_sec'] & df['paid_M'].astype(str).isin(CAL_WINDOW) &
+    df['segment'].notna() & df['usd'].notna()
+].copy()
+sec_cal_for_3pool['paid_ym']      = sec_cal_for_3pool['paid_M'].apply(
+    lambda p: p.year * 12 + p.month if not pd.isna(p) else None)
+sec_cal_for_3pool['prev_plan_ym'] = sec_cal_for_3pool['prev_plan_M'].apply(
+    lambda p: p.year * 12 + p.month if not pd.isna(p) else None)
+sec_cal_for_3pool['seg_lag'] = (
+    sec_cal_for_3pool['paid_ym'] - sec_cal_for_3pool['prev_plan_ym']
+)  # 0=Present, <0=Earlier, >0=Reanim
+
 # prev_pkg_bucket on sec_cal: for each secondary sale find the pkg_bucket of the
 # previous payment (payment_no - 1) by joining to pool_df via student_id + payment_no
 if 'student_id' in df.columns and 'payment_no' in df.columns:
@@ -413,6 +426,87 @@ else:
 
 n_expanded = len(retention_expanded)
 print(f"  Retention expanded (pno,ct,gt,pkg): {n_expanded} combinations with pool>=15")
+
+# ── Three-pool rate calibration ────────────────────────────────────────────────
+# Calibrated defaults (from diagnostic — used when pool_n < 10)
+RATE_PRESENT_DEFAULT = {1:0.1494, 2:0.2636, 3:0.3097, 4:0.3140, 5:0.4225, 6:0.3989,
+                        7:0.4495, 8:0.5156, 9:0.6383, 10:0.6111, 11:0.5758, 12:0.5000}
+RATE_EARLIER_DEFAULT = {1:0.0580, 2:0.1166, 3:0.1321, 4:0.1731, 5:0.1713, 6:0.2067,
+                        7:0.1957, 8:0.0536, 9:0.1111, 10:0.0312, 11:0.1304}
+RATE_REANIM_DEFAULT  = {1:0.0274, 2:0.0458, 3:0.0631, 4:0.0626, 5:0.0661, 6:0.0933,
+                        7:0.0870, 8:0.0926, 9:0.0714, 10:0.1379, 11:0.1333}
+
+rate_present_3pool = {}
+rate_earlier_3pool = {}
+rate_reanim_3pool  = {}
+src_rate_3pool     = {}
+
+if has_pno and len(sec_cal_for_3pool) > 0:
+    pool_3pool = pool_cal_df[pool_cal_df['payment_no'].notna()].copy()
+    sec_3pool  = sec_cal_for_3pool[sec_cal_for_3pool['payment_no'].notna()].copy()
+
+    _cal_periods = [pd.Period(m) for m in CAL_WINDOW]
+
+    for pno in range(1, 14):
+        # Aggregate counts across all cal months
+        n_present = 0; n_earlier = 0; n_reanim = 0
+        pool_T_total = 0; pool_T1_total = 0; pool_Tm1_total = 0
+
+        for T in _cal_periods:
+            T1  = T + 1
+            Tm1 = T - 1
+
+            pool_T   = pool_3pool[(pool_3pool['planned_M'] == T)   & (pool_3pool['payment_no'] == float(pno))]
+            pool_T1  = pool_3pool[(pool_3pool['planned_M'] == T1)  & (pool_3pool['payment_no'] == float(pno))]
+            pool_Tm1 = pool_3pool[(pool_3pool['planned_M'] == Tm1) & (pool_3pool['payment_no'] == float(pno))]
+
+            sec_T = sec_3pool[
+                (sec_3pool['paid_M'] == T) &
+                (sec_3pool['payment_no'] == float(pno + 1))
+            ]
+
+            pool_T_total   += len(pool_T)
+            pool_T1_total  += len(pool_T1)
+            pool_Tm1_total += len(pool_Tm1)
+
+            n_present += (sec_T['seg_lag'] == 0).sum()
+            n_earlier += (sec_T['seg_lag'] == -1).sum()
+            n_reanim  += (sec_T['seg_lag'] == 1).sum()
+
+        # rate_present = sec_present / pool_T
+        if pool_T_total >= 10:
+            rate_present_3pool[pno] = n_present / pool_T_total
+            src_rate_3pool[(pno, 'present')] = f'data pool_T={pool_T_total} sec={n_present}'
+        else:
+            rate_present_3pool[pno] = RATE_PRESENT_DEFAULT.get(pno, 0.15)
+            src_rate_3pool[(pno, 'present')] = f'hardcoded default (pool_T={pool_T_total}<10)'
+
+        # rate_earlier = sec_earlier1 / pool_T1
+        if pool_T1_total >= 10:
+            rate_earlier_3pool[pno] = n_earlier / pool_T1_total
+            src_rate_3pool[(pno, 'earlier')] = f'data pool_T1={pool_T1_total} sec={n_earlier}'
+        else:
+            rate_earlier_3pool[pno] = RATE_EARLIER_DEFAULT.get(pno, 0.06)
+            src_rate_3pool[(pno, 'earlier')] = f'hardcoded default (pool_T1={pool_T1_total}<10)'
+
+        # rate_reanim = sec_reanim1 / pool_Tm1
+        if pool_Tm1_total >= 10:
+            rate_reanim_3pool[pno] = n_reanim / pool_Tm1_total
+            src_rate_3pool[(pno, 'reanim')] = f'data pool_Tm1={pool_Tm1_total} sec={n_reanim}'
+        else:
+            rate_reanim_3pool[pno] = RATE_REANIM_DEFAULT.get(pno, 0.03)
+            src_rate_3pool[(pno, 'reanim')] = f'hardcoded default (pool_Tm1={pool_Tm1_total}<10)'
+else:
+    for pno in range(1, 14):
+        rate_present_3pool[pno] = RATE_PRESENT_DEFAULT.get(pno, 0.15)
+        rate_earlier_3pool[pno] = RATE_EARLIER_DEFAULT.get(pno, 0.06)
+        rate_reanim_3pool[pno]  = RATE_REANIM_DEFAULT.get(pno, 0.03)
+        src_rate_3pool[(pno, 'present')] = 'hardcoded default (no pno data)'
+        src_rate_3pool[(pno, 'earlier')] = 'hardcoded default (no pno data)'
+        src_rate_3pool[(pno, 'reanim')]  = 'hardcoded default (no pno data)'
+
+print(f"  Three-pool rates calibrated: pno1 present={rate_present_3pool.get(1,0):.4f} "
+      f"earlier={rate_earlier_3pool.get(1,0):.4f} reanim={rate_reanim_3pool.get(1,0):.4f}")
 
 # ── Package distribution ──────────────────────────────────────────────────────
 sec_cal_pkg = sec_cal[sec_cal['pkg'].notna() & (sec_cal['pkg'] > 0) & (sec_cal['pkg'] <= 500)].copy()
@@ -801,6 +895,59 @@ wc(ws_ret, last_ret+1, 1,
    f'For pno>=16 model uses RETENTION_PNO_HIGH={RETENTION_PNO_HIGH:.1%}.',
    'sub', italic=True, align='left', size=9, span=8, wrap=True)
 ws_ret.row_dimensions[last_ret+1].height = 36
+
+# ── THREE-POOL RATES section ─────────────────────────────────────────────────
+# Historical segment shares used as calibration baseline
+HIST_SHARES_3POOL = {'Present': 0.497, 'Earlier': 0.310, 'Reanim': 0.108}
+
+sep_row = last_ret + 3
+wc(ws_ret, sep_row, 1,
+   '━━━━━━━━  THREE-POOL RATES  ━━━━━━━━  '
+   f'Hist shares: Present={HIST_SHARES_3POOL["Present"]:.3f}  '
+   f'Earlier={HIST_SHARES_3POOL["Earlier"]:.3f}  '
+   f'Reanim={HIST_SHARES_3POOL["Reanim"]:.3f}  '
+   '—  Edit rates below; scaling applied by forecast_2026_v3.py based on shares sheet',
+   'dblue', bold=True, align='left', size=10, span=8)
+ws_ret.row_dimensions[sep_row].height = 22
+
+hdr_row = sep_row + 1
+for c, h in zip(range(1, 9),
+                ['pno', 'rate_present', 'rate_earlier_1', 'rate_reanim_1',
+                 'note_present', 'note_earlier', 'note_reanim', 'hist_shares']):
+    wc(ws_ret, hdr_row, c, h, 'dblue', bold=True, align='center', size=9)
+ws_ret.row_dimensions[hdr_row].height = 18
+
+data_row = hdr_row + 1
+for pno in range(1, 14):
+    wc(ws_ret, data_row, 1, pno,
+       'gold', fmt='#,##0', bold=True, align='center', size=9)
+    wc(ws_ret, data_row, 2, round(rate_present_3pool.get(pno, 0.15), 4),
+       'edit', fmt='0.0000', align='center')
+    wc(ws_ret, data_row, 3, round(rate_earlier_3pool.get(pno, 0.06), 4),
+       'edit', fmt='0.0000', align='center')
+    wc(ws_ret, data_row, 4, round(rate_reanim_3pool.get(pno, 0.03), 4),
+       'edit', fmt='0.0000', align='center')
+    wc(ws_ret, data_row, 5, src_rate_3pool.get((pno, 'present'), ''),
+       'lgrey', align='left', size=8, italic=True)
+    wc(ws_ret, data_row, 6, src_rate_3pool.get((pno, 'earlier'), ''),
+       'lgrey', align='left', size=8, italic=True)
+    wc(ws_ret, data_row, 7, src_rate_3pool.get((pno, 'reanim'), ''),
+       'lgrey', align='left', size=8, italic=True)
+    wc(ws_ret, data_row, 8,
+       f'Present_hist={HIST_SHARES_3POOL["Present"]}  '
+       f'Earlier_hist={HIST_SHARES_3POOL["Earlier"]}  '
+       f'Reanim_hist={HIST_SHARES_3POOL["Reanim"]}',
+       'lgrey', align='left', size=8, italic=True)
+    ws_ret.row_dimensions[data_row].height = 15
+    data_row += 1
+
+wc(ws_ret, data_row + 1, 1,
+   'THREE-POOL section is read by forecast_2026_v3.py for data/blend mode months. '
+   'rate_present = pool[T]×rate→sec; rate_earlier = pool[T+1]×rate→early-pay; '
+   'rate_reanim = pool[T-1]×rate→late-pay. Effective rates are scaled by '
+   '(current_share / hist_share) from the shares sheet.',
+   'sub', italic=True, align='left', size=8, span=8, wrap=True)
+ws_ret.row_dimensions[data_row + 1].height = 40
 
 # ─── SHEET: shares ────────────────────────────────────────────────────────────
 ws_sh = wb.create_sheet('shares')
