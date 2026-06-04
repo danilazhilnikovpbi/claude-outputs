@@ -599,6 +599,29 @@ for pno in range(1, 28):
     rate_earlier_3pool[pno] = base_e * _scale_earlier * RETENTION_ADJ
     rate_reanim_3pool[pno]  = base_r * _scale_reanim  * RETENTION_ADJ
 
+# EXT_SHARE_SCALE: корректирует ext_curve для ext-месяцев (Jun-Dec 2026) под новые shares
+# Логика: ext_curve был откалиброван при исторических долях Present/Earlier/Reanim.
+# Если Earlier вырос → больше досрочных платежей из будущих пулов → total N растёт.
+# Weighted avg rate: rate_eff = p_share×rp_avg + e_share×re_avg + r_share×rr_avg
+# Где rp/re/rr — средние ставки по всем pno (взвешено по размеру пула).
+_avg_rp = float(np.mean([v for v in rate_present_3pool.values() if v > 0])) / _scale_present if _scale_present > 0 else 0.15
+_avg_re = float(np.mean([v for v in rate_earlier_3pool.values()  if v > 0])) / _scale_earlier if _scale_earlier > 0 else 0.06
+_avg_rr = float(np.mean([v for v in rate_reanim_3pool.values()   if v > 0])) / _scale_reanim  if _scale_reanim  > 0 else 0.03
+
+_hist_p, _hist_e, _hist_r = HIST_SHARES['Present'], HIST_SHARES['Earlier'], HIST_SHARES['Reanim']
+_new_p  = shares.get('Present', _hist_p)
+_new_e  = shares.get('Earlier', _hist_e)
+_new_r  = shares.get('Reanim',  _hist_r)
+
+_rate_hist_weighted = _hist_p * _avg_rp + _hist_e * _avg_re + _hist_r * _avg_rr
+_rate_new_weighted  = _new_p  * _avg_rp + _new_e  * _avg_re + _new_r  * _avg_rr
+EXT_SHARE_SCALE = (_rate_new_weighted / _rate_hist_weighted
+                   if _rate_hist_weighted > 0 else 1.0) * RETENTION_ADJ
+print(f'  ext_share_scale: {EXT_SHARE_SCALE:.3f}  '
+      f'(present {_hist_p:.0%}→{_new_p:.0%}, '
+      f'earlier {_hist_e:.0%}→{_new_e:.0%}, '
+      f'reanim {_hist_r:.0%}→{_new_r:.0%})')
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CALIBRATION 2: PROLONGATION RATES (fallback when retention_by_renewal not used)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -944,85 +967,79 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
     """
     Returns (total_sec, pool_display, mode).
 
-    mode='data'  (Jan-Apr): total_sec = Σ_n pool_by_pno[(m,ct,gt,n)] * retention[n]
-    mode='blend' (May):     то же, без масштабирования (BLEND_SCALE=1.0)
-    mode='ext'   (Jun-Dec): total_sec = Σ_cohort cohort_size * ext_curve[lag]
+    Jan-Apr (data mode):  three-pool formula на pool_raw_dim
+                          pool[T]×rate_present + pool[T+1]×rate_earlier + pool[T-1]×rate_reanim
+    May     (blend mode): то же
+    Jun-Dec (ext mode):   ext_curve × cohorts × EXT_SHARE_SCALE
+                          EXT_SHARE_SCALE учитывает изменение долей сегментов относительно
+                          исторических: если Earlier вырос → больше досрочников → scale > 1
+
+    Segment shares влияют на N:
+      data mode: через scaling трёх ставок present/earlier/reanim
+      ext mode:  через EXT_SHARE_SCALE = weighted_rate_new / weighted_rate_hist
     """
     mstr = str(m)
 
     if mstr in DATA_MODES['data'] or mstr in DATA_MODES['blend']:
-        # Three-pool formula:
-        #   pool[T]   × rate_present  (paid in planned month)
-        #   pool[T+1] × rate_earlier  (paid one month early)
-        #   pool[T-1] × rate_reanim   (paid one month late)
+        # ── Три пула из реальных данных ──────────────────────────────────────
         total_sec  = 0.0
         pool_total = 0.0
+        m_plus1  = m + 1
+        m_minus1 = m - 1
 
         if len(pool_by_pno) > 0:
-            m_plus1  = m + 1
-            m_minus1 = m - 1
-
             for pno_raw in range(1, 28):
                 pno_f = float(pno_raw)
-
-                # pool[T] — students with planned renewal in month T
                 try:
-                    n_T = int(pool_by_pno.get((m,        ct, gt, pno_f), 0) or
-                              pool_by_pno.get((m,        ct, gt, pno_raw), 0))
-                except Exception:
-                    n_T = 0
-                # pool[T+1] — students planned for T+1 who may pay early (in T)
-                try:
-                    n_T1 = int(pool_by_pno.get((m_plus1, ct, gt, pno_f), 0) or
-                               pool_by_pno.get((m_plus1, ct, gt, pno_raw), 0))
-                except Exception:
-                    n_T1 = 0
-                # pool[T-1] — students planned for T-1 who pay late (in T)
-                try:
-                    n_Tm1 = int(pool_by_pno.get((m_minus1, ct, gt, pno_f), 0) or
+                    n_T   = int(pool_by_pno.get((m,        ct, gt, pno_f),  0) or
+                                pool_by_pno.get((m,        ct, gt, pno_raw), 0))
+                    n_T1  = int(pool_by_pno.get((m_plus1,  ct, gt, pno_f),  0) or
+                                pool_by_pno.get((m_plus1,  ct, gt, pno_raw), 0))
+                    n_Tm1 = int(pool_by_pno.get((m_minus1, ct, gt, pno_f),  0) or
                                 pool_by_pno.get((m_minus1, ct, gt, pno_raw), 0))
                 except Exception:
-                    n_Tm1 = 0
+                    n_T = n_T1 = n_Tm1 = 0
 
                 rp = rate_present_3pool.get(pno_raw, rate_present_3pool.get(min(pno_raw, 15), 0.15))
                 re = rate_earlier_3pool.get(pno_raw, rate_earlier_3pool.get(min(pno_raw, 15), 0.06))
                 rr = rate_reanim_3pool.get(pno_raw,  rate_reanim_3pool.get(min(pno_raw, 15), 0.03))
 
                 total_sec  += n_T * rp + n_T1 * re + n_Tm1 * rr
-                pool_total += n_T + n_T1 * (re / rp if rp > 0 else 1) + n_Tm1 * (rr / rp if rp > 0 else 1)
+                pool_total += n_T
         else:
-            # No pno breakdown: use flat rate
             raw_pool  = float(pool_raw_dim.get((m, ct, gt), 0))
-            flat_rate = rates.get((ct, gt), glob_rate)
-            total_sec  = raw_pool * flat_rate
+            total_sec  = raw_pool * rates.get((ct, gt), glob_rate)
             pool_total = raw_pool
 
-        if mstr in DATA_MODES['blend']:
-            total_sec  *= BLEND_SCALE
-            pool_total *= BLEND_SCALE
-            mode = 'blend'
-        else:
-            mode = 'data'
+        mode = 'blend' if mstr in DATA_MODES['blend'] else 'data'
         return total_sec, pool_total, mode
 
     else:
-        # ext mode: cohort × ext_curve
+        # ── Ext mode: ext_curve × cohorts × EXT_SHARE_SCALE ─────────────────
+        # EXT_SHARE_SCALE корректирует total за изменение доли досрочников/задержавшихся.
+        # Avg rate hist = Σ_seg(hist_share × avg_rate_seg) ; аналогично для new_shares.
+        # Если Earlier↑ → больше досрочных платежей → EXT_SHARE_SCALE > 1.
         ext_sales = 0.0
+
         # Historical cohorts
         for C_m, sz in hist_cohort_by_dim.get((ct, gt), {}).items():
             if C_m >= m: continue
-            lag = (m.year - C_m.year) * 12 + (m.month - C_m.month)
+            lag = (m.year - C_m.year)*12 + (m.month - C_m.month)
             if lag in ext_curve:
                 ext_sales += sz * ext_curve[lag]
-        # Plan cohorts (data_cutoff+1 → forecast_end) — из PRIMARY_PLAN_COUNTS (Excel)
+
+        # Plan cohorts (Jun-Dec 2026)
         for C in plan_future_cohorts_set:
             if C >= m: continue
-            lag = (m.year - C.year) * 12 + (m.month - C.month)
+            lag = (m.year - C.year)*12 + (m.month - C.month)
             if lag not in ext_curve: continue
             cnt = PRIMARY_PLAN_COUNTS.get((ct, gt), {}).get(str(C))
             if cnt:
                 ext_sales += cnt * ext_curve[lag]
-        # pool_display = ext_sales / rate (pipeline equivalent)
+
+        # Apply EXT_SHARE_SCALE: segment shares affect N in ext mode too
+        ext_sales *= EXT_SHARE_SCALE
+
         r = rates.get((ct, gt), glob_rate)
         pool_disp = ext_sales / r if r > 0 else ext_sales
         return ext_sales, pool_disp, 'ext'
