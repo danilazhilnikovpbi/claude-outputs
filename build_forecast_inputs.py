@@ -64,6 +64,14 @@ DIMS = [
 ]
 SEGS = ['Present', 'Earlier', 'Reanim', 'Upgrades']
 
+PKG_BUCKETS = [8, 10, 16, 20, 24, 32, 40, 56, 64, 80, 120, 128]
+
+def map_to_bucket(pkg):
+    """Map a package size to the nearest bucket in PKG_BUCKETS."""
+    if pd.isna(pkg) or pkg <= 0:
+        return None
+    return min(PKG_BUCKETS, key=lambda b: abs(b - pkg))
+
 # Hardcoded fallbacks (matching forecast_2026_v3.py)
 PKG_DIST_FALLBACK_BASE_GROUP = {
     8:0.25, 10:0.14, 32:0.13, 16:0.13, 20:0.09, 4:0.08, 36:0.07, 40:0.06
@@ -195,6 +203,8 @@ def classify_segment(row):
 
 df = df[df['payment_updated_at'] <= DATA_CUTOFF].copy()
 df['segment'] = df.apply(classify_segment, axis=1)
+# pkg_bucket — round pkg to nearest bucket
+df['pkg_bucket'] = df['pkg'].apply(map_to_bucket)
 print(f"  Loaded {len(df):,} rows")
 
 # ── Авто-заполнение plan_counts из ПОЛНОГО CSV (без обрезки по data_cutoff) ────
@@ -291,6 +301,38 @@ sec_cal = df[
     df['segment'].notna() & df['usd'].notna()
 ].copy()
 total_sec_cal = len(sec_cal)
+
+# ── Prolongation rates ────────────────────────────────────────────────────────
+# (moved pool_df definition here so sec_cal can use prev_pkg_bucket)
+pool_df     = df[df['next_payment_planned_dt'].notna()].copy()
+pool_df['planned_M'] = pool_df['next_payment_planned_dt'].dt.to_period('M')
+# pkg_bucket already on df, carried into pool_df
+pool_cal_df = pool_df[pool_df['planned_M'].astype(str).isin(CAL_WINDOW)]
+glob_pool   = len(pool_cal_df)
+glob_rate   = total_sec_cal / glob_pool if glob_pool > 0 else 0.20
+
+# prev_pkg_bucket on sec_cal: for each secondary sale find the pkg_bucket of the
+# previous payment (payment_no - 1) by joining to pool_df via student_id + payment_no
+if 'student_id' in df.columns and 'payment_no' in df.columns:
+    _pkg_lookup = (
+        df[df['payment_no'].notna() & df['pkg_bucket'].notna()]
+        [['student_id', 'payment_no', 'pkg_bucket']]
+        .rename(columns={'payment_no': '_prev_pno', 'pkg_bucket': 'prev_pkg_bucket'})
+    )
+    sec_cal = sec_cal.copy()
+    # sec_cal row: payment_no = n (the actual secondary payment)
+    # prev payment is payment_no - 1, which is what drove the pool prediction
+    sec_cal['_prev_pno'] = sec_cal['payment_no'] - 1
+    sec_cal = sec_cal.merge(
+        _pkg_lookup,
+        left_on=['student_id', '_prev_pno'],
+        right_on=['student_id', '_prev_pno'],
+        how='left'
+    )
+    sec_cal.drop(columns=['_prev_pno'], inplace=True)
+else:
+    sec_cal['prev_pkg_bucket'] = None
+
 shares = {}; src_shares = {}
 for seg in SEGS:
     if total_sec_cal >= 50:
@@ -301,13 +343,6 @@ for seg in SEGS:
         src_shares[seg] = f'hardcoded default (n={total_sec_cal})'
 _s = sum(shares.values())
 shares = {k: v/_s for k, v in shares.items()}
-
-# ── Prolongation rates ────────────────────────────────────────────────────────
-pool_df     = df[df['next_payment_planned_dt'].notna()].copy()
-pool_df['planned_M'] = pool_df['next_payment_planned_dt'].dt.to_period('M')
-pool_cal_df = pool_df[pool_df['planned_M'].astype(str).isin(CAL_WINDOW)]
-glob_pool   = len(pool_cal_df)
-glob_rate   = total_sec_cal / glob_pool if glob_pool > 0 else 0.20
 
 rates = {}; src_rates = {}
 for ct, gt in DIMS:
@@ -321,27 +356,63 @@ for ct, gt in DIMS:
         src_rates[(ct,gt)] = f'hardcoded default (pool={p}<{MIN_N_RATE})'
 
 # ── Retention by payment_no ───────────────────────────────────────────────────
+# Level 2 fallback: (pno, ct, gt) dim-level retention
+# Level 1 expanded: (pno, ct, gt, pkg_bucket) where pool >= 15
 retention_by_renewal = {}; src_retention = {}
+# retention_expanded: (pno, ct, gt, pkg_bucket) -> rate
+retention_expanded = {}; src_retention_expanded = {}
+
 has_pno = 'payment_no' in df.columns and df['payment_no'].notna().sum() > 100
 if has_pno:
     pool_pno_cal = pool_cal_df[pool_cal_df['payment_no'].notna()].copy()
     sec_pno_cal  = sec_cal[sec_cal['payment_no'].notna()].copy()
+
+    # ── Level 2: (pno) global ────────────────────────────────────────────────
     for pno in range(1, 16):
-        # pool[pno]  = students who just made payment #pno, have NEXT planned in Cal_Window
-        # sec[pno+1] = students who ACTUALLY made payment #(pno+1) in Cal_Window
         pool_n = len(pool_pno_cal[pool_pno_cal['payment_no'] == float(pno)])
         sec_n  = len(sec_pno_cal[sec_pno_cal['payment_no'] == float(pno + 1)])
         if pool_n >= 10:
-            rate_v = min(sec_n / pool_n, 1.0)   # cap at 100%
+            rate_v = min(sec_n / pool_n, 1.0)
             retention_by_renewal[pno] = rate_v
             src_retention[pno] = f'data pool={pool_n} sec={sec_n}'
         else:
             retention_by_renewal[pno] = RETENTION_BY_PNO_DEFAULT.get(pno, RETENTION_PNO_HIGH)
             src_retention[pno] = f'hardcoded default (pool={pool_n}<10)'
+
+    # ── Level 1: (pno, ct, gt, pkg_bucket) ──────────────────────────────────
+    pool_pno_pkg_cal = pool_pno_cal[pool_pno_cal['pkg_bucket'].notna()].copy()
+    sec_pno_pkg_cal  = sec_pno_cal[sec_pno_cal['prev_pkg_bucket'].notna()].copy()
+
+    for pno in range(1, 16):
+        for ct, gt in DIMS:
+            for pkg_b in PKG_BUCKETS:
+                pool_mask = (
+                    (pool_pno_pkg_cal['payment_no'] == float(pno)) &
+                    (pool_pno_pkg_cal['course_type'] == ct) &
+                    (pool_pno_pkg_cal['group_type']  == gt) &
+                    (pool_pno_pkg_cal['pkg_bucket']  == pkg_b)
+                )
+                pool_n_pkg = pool_mask.sum()
+                if pool_n_pkg >= 15:
+                    sec_mask = (
+                        (sec_pno_pkg_cal['payment_no']      == float(pno + 1)) &
+                        (sec_pno_pkg_cal['course_type']      == ct) &
+                        (sec_pno_pkg_cal['group_type']       == gt) &
+                        (sec_pno_pkg_cal['prev_pkg_bucket']  == pkg_b)
+                    )
+                    sec_n_pkg = sec_mask.sum()
+                    rate_v = min(sec_n_pkg / pool_n_pkg, 1.0)
+                    retention_expanded[(pno, ct, gt, pkg_b)] = rate_v
+                    src_retention_expanded[(pno, ct, gt, pkg_b)] = (
+                        f'data pool={pool_n_pkg} sec={sec_n_pkg}'
+                    )
 else:
     for pno in range(1, 16):
         retention_by_renewal[pno] = RETENTION_BY_PNO_DEFAULT.get(pno, RETENTION_PNO_HIGH)
         src_retention[pno] = 'hardcoded default (no pno data in CSV)'
+
+n_expanded = len(retention_expanded)
+print(f"  Retention expanded (pno,ct,gt,pkg): {n_expanded} combinations with pool>=15")
 
 # ── Package distribution ──────────────────────────────────────────────────────
 sec_cal_pkg = sec_cal[sec_cal['pkg'].notna() & (sec_cal['pkg'] > 0) & (sec_cal['pkg'] <= 500)].copy()
@@ -447,6 +518,7 @@ print(f"  Calibration complete")
 print(f"  Rates: {', '.join(f'{ct}/{gt}={rates[(ct,gt)]:.1%}' for ct,gt in DIMS)}")
 print(f"  Shares: {', '.join(f'{s}={shares[s]:.1%}' for s in SEGS)}")
 print(f"  Retention pno1={retention_by_renewal[1]:.1%}, pno3={retention_by_renewal[3]:.1%}, pno7={retention_by_renewal.get(7,0):.1%}")
+print(f"  Retention expanded (pno,ct,gt,pkg): {len(retention_expanded)} combinations with pool>=15")
 print(f"  Package dims calibrated: {len(set((k[0],k[1]) for k in pkg_dist_final))}/{len(DIMS)}")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -506,7 +578,7 @@ instructions = [
     ('  plan_counts          — new primary students per month Jan-Dec 2026 (wide table)', 'lgrey', False, 10),
     ('  package_dist         — package size probabilities from secondary sales Jul-Dec 2025', 'lgrey', False, 10),
     ('  renewal_price        — price per lesson (base Q3-2025) + quarterly growth factor', 'lgrey', False, 10),
-    ('  retention_by_renewal — conversion rate from pool to secondary by payment_no', 'lgrey', False, 10),
+    ('  retention_by_renewal — retention by (pno, ct, gt, pkg_bucket) + (pno, ALL) fallback rows', 'lgrey', False, 10),
     ('  shares               — segment shares Present/Earlier/Reanim/Upgrades', 'lgrey', False, 10),
     ('  ext_curve            — lag curve for future cohort projections (Jun-Dec 2026)', 'lgrey', False, 10),
     ('  rates                — flat prolongation rate by dim (fallback when no pno data)', 'lgrey', False, 10),
@@ -641,50 +713,94 @@ wc(ws_rp, row_rp+1, 1,
    'sub', italic=True, align='left', size=9, span=6, wrap=True)
 ws_rp.row_dimensions[row_rp+1].height = 30
 
-# ─── SHEET: retention_by_renewal ──────────────────────────────────────────────
+# ─── SHEET: retention_by_renewal — long-format with pkg_bucket breakdown ──────
 ws_ret = wb.create_sheet('retention_by_renewal')
 ws_ret.sheet_view.showGridLines = False
-for c, w in {1:14, 2:16, 3:14, 4:14, 5:40}.items():
+for c, w in {1:8, 2:14, 3:14, 4:12, 5:12, 6:12, 7:14, 8:40}.items():
     ws_ret.column_dimensions[get_column_letter(c)].width = w
 
 wc(ws_ret, 1, 1,
-   'Retention by Payment_No  —  EDIT yellow column to override',
-   'navy', bold=True, align='left', size=12, span=5)
-for c, h in zip([1,2,3,4,5],
-                ['Payment_No', 'Retention_Rate', 'Pool_n (cal)', 'Sales_n (cal)', 'Note / Source']):
-    wc(ws_ret, 2, c, h, 'dblue', bold=True, align='center', size=9)
+   'Retention by (pno, ct, gt, pkg_bucket)  —  Override column takes priority. '
+   'Fallback: pkg_bucket=ALL (dim-level), then global pno default.',
+   'navy', bold=True, align='left', size=11, span=8)
+wc(ws_ret, 2, 1,
+   'Fallback hierarchy: Level1=(pno,ct,gt,pkg) pool>=15  →  Level2=(pno,ct,gt) ALL  →  Level3=global(pno)',
+   'sub', italic=True, align='left', size=9, span=8)
+for c, h in zip(range(1, 9),
+                ['pno', 'ct', 'gt', 'pkg_bucket', 'Retention', 'Override', 'n_pool', 'Note / Source']):
+    wc(ws_ret, 3, c, h, 'dblue', bold=True, align='center', size=9)
 ws_ret.row_dimensions[1].height = 26
-ws_ret.row_dimensions[2].height = 18
+ws_ret.row_dimensions[2].height = 16
+ws_ret.row_dimensions[3].height = 18
 
 _pno_bg = ['lblue','lgreen','loran','teal2','sub','lgrey']
-for ri, pno in enumerate(sorted(retention_by_renewal.keys()), 3):
-    bg = _pno_bg[(pno - 1) % len(_pno_bg)]
-    rate_v = retention_by_renewal[pno]
-    src_v  = src_retention.get(pno, '')
-    # Extract pool/sales from src if available
-    pool_n_display = '--'; sales_n_display = '--'
-    if 'pool=' in src_v:
-        try:
-            parts = src_v.split()
-            for part in parts:
-                if part.startswith('pool='):
-                    pool_n_display = int(part.split('=')[1])
-                if part.startswith('sec='):
-                    sales_n_display = int(part.split('=')[1])
-        except: pass
-    wc(ws_ret, ri, 1, pno,                  bg,     fmt='#,##0',   align='center')
-    wc(ws_ret, ri, 2, round(rate_v, 4),     'edit', fmt='0.0000',  align='center')
-    wc(ws_ret, ri, 3, pool_n_display,        bg,     fmt='#,##0' if isinstance(pool_n_display, int) else None, align='center', size=9)
-    wc(ws_ret, ri, 4, sales_n_display,       bg,     fmt='#,##0' if isinstance(sales_n_display, int) else None, align='center', size=9)
-    wc(ws_ret, ri, 5, src_v,                'lgrey', align='left', size=8, italic=True)
-    ws_ret.row_dimensions[ri].height = 16
 
-last_ret = len(retention_by_renewal) + 3
+def _parse_pool_n(src_v):
+    """Extract pool count from source string like 'data pool=42 sec=18'."""
+    if 'pool=' not in src_v:
+        return '--'
+    try:
+        for part in src_v.split():
+            if part.startswith('pool='):
+                return int(part.split('=')[1])
+    except Exception:
+        pass
+    return '--'
+
+ret_row = 4
+
+# ── Part 1: expanded rows (pno, ct, gt, pkg_bucket) with Level-1 data ────────
+for pno in range(1, 16):
+    for ct, gt in DIMS:
+        for pkg_b in PKG_BUCKETS:
+            key = (pno, ct, gt, pkg_b)
+            if key not in retention_expanded:
+                continue
+            rate_v = retention_expanded[key]
+            src_v  = src_retention_expanded.get(key, '')
+            bg = _pno_bg[(pno - 1) % len(_pno_bg)]
+            wc(ws_ret, ret_row, 1, pno,              bg,     fmt='#,##0', align='center', size=9)
+            wc(ws_ret, ret_row, 2, ct,               bg,     align='left', size=9)
+            wc(ws_ret, ret_row, 3, gt,               bg,     align='left', size=9)
+            wc(ws_ret, ret_row, 4, pkg_b,            bg,     fmt='#,##0', align='center', size=9)
+            wc(ws_ret, ret_row, 5, round(rate_v, 4), 'lock', fmt='0.0000', align='center')
+            wc(ws_ret, ret_row, 6, None,             'edit', fmt='0.0000', align='center')
+            wc(ws_ret, ret_row, 7, _parse_pool_n(src_v),
+               bg, fmt='#,##0' if isinstance(_parse_pool_n(src_v), int) else None,
+               align='center', size=9)
+            wc(ws_ret, ret_row, 8, src_v,            'lgrey', align='left', size=8, italic=True)
+            ws_ret.row_dimensions[ret_row].height = 14
+            ret_row += 1
+
+# ── Part 2: dim-level fallback rows (pno, ct, gt, 'ALL') ─────────────────────
+# These are Level-2 fallback: (pno, ct, gt) with no pkg split
+for pno in range(1, 16):
+    rate_v = retention_by_renewal.get(pno, RETENTION_BY_PNO_DEFAULT.get(pno, RETENTION_PNO_HIGH))
+    src_v  = src_retention.get(pno, '')
+    bg = _pno_bg[(pno - 1) % len(_pno_bg)]
+    # Write one 'ALL' row per pno (global, covers all dims as fallback)
+    wc(ws_ret, ret_row, 1, pno,              'gold', fmt='#,##0', bold=True, align='center', size=9)
+    wc(ws_ret, ret_row, 2, 'ALL',            'gold', align='center', size=9, bold=True)
+    wc(ws_ret, ret_row, 3, 'ALL',            'gold', align='center', size=9, bold=True)
+    wc(ws_ret, ret_row, 4, 'ALL',            'gold', align='center', size=9, bold=True)
+    wc(ws_ret, ret_row, 5, round(rate_v, 4), 'edit', fmt='0.0000', align='center')
+    wc(ws_ret, ret_row, 6, None,             'edit', fmt='0.0000', align='center')
+    wc(ws_ret, ret_row, 7, _parse_pool_n(src_v),
+       'gold', fmt='#,##0' if isinstance(_parse_pool_n(src_v), int) else None,
+       align='center', size=9)
+    wc(ws_ret, ret_row, 8, src_v + '  ← Level-2 fallback (ALL pkg)',
+       'lgrey', align='left', size=8, italic=True)
+    ws_ret.row_dimensions[ret_row].height = 15
+    ret_row += 1
+
+last_ret = ret_row
 wc(ws_ret, last_ret+1, 1,
-   f'payment_no 1 = primary (not secondary). pno 2 = first renewal. '
-   f'For pno >= 16 the model uses RETENTION_PNO_HIGH = {RETENTION_PNO_HIGH:.1%}.',
-   'sub', italic=True, align='left', size=9, span=5, wrap=True)
-ws_ret.row_dimensions[last_ret+1].height = 30
+   f'pno=1 = primary (not secondary). pno=2 = first renewal. '
+   f'Override (col F) takes priority over Retention (col E) if non-empty. '
+   f'pkg_bucket rows = Level-1 (pool>=15). ALL rows = Level-2 fallback. '
+   f'For pno>=16 model uses RETENTION_PNO_HIGH={RETENTION_PNO_HIGH:.1%}.',
+   'sub', italic=True, align='left', size=9, span=8, wrap=True)
+ws_ret.row_dimensions[last_ret+1].height = 36
 
 # ─── SHEET: shares ────────────────────────────────────────────────────────────
 ws_sh = wb.create_sheet('shares')

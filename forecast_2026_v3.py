@@ -84,6 +84,14 @@ DIMS = [
 SEGS = ['Present', 'Earlier', 'Reanim', 'Upgrades']
 SEP  = '=' * 100
 
+PKG_BUCKETS = [8, 10, 16, 20, 24, 32, 40, 56, 64, 80, 120, 128]
+
+def map_to_bucket(pkg):
+    """Map a package size to the nearest bucket in PKG_BUCKETS."""
+    if pd.isna(pkg) or pkg <= 0:
+        return None
+    return min(PKG_BUCKETS, key=lambda b: abs(b - pkg))
+
 # ══════════════════════════════════════════════════════════════════════════════
 # [B] HARD-CODED CALIBRATION FALLBACKS (from key calibration findings)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -143,7 +151,8 @@ def _load_inputs_excel():
         'plan_counts':          {},   # (ct,gt) -> {mstr: int}
         'package_dist':         {},   # (ct,gt,pkg) -> float
         'renewal_price':        {},   # (ct,gt,pkg) -> float  (price/lesson base)
-        'retention_by_renewal': {},   # pno -> float
+        'retention_by_renewal': {},   # pno -> float  (global fallback, ALL rows)
+        'retention_expanded':   {},   # (pno, ct, gt, pkg_bucket) -> float
         'shares':               {},   # seg -> float
         'ext_curve':            {},   # lag_k -> float
         'rates':                {},   # (ct,gt) -> float
@@ -204,16 +213,42 @@ def _load_inputs_excel():
                         except: pass
                         break
 
-    # retention_by_renewal sheet: cols Payment_No | Retention_Rate | ...
+    # retention_by_renewal sheet: new long-format
+    # Cols: pno(0) | ct(1) | gt(2) | pkg_bucket(3) | Retention(4) | Override(5) | n_pool(6) | Note(7)
+    # 'ALL' rows (ct=ALL, gt=ALL, pkg=ALL) → global fallback keyed by pno
+    # pkg-specific rows → retention_expanded keyed by (pno, ct, gt, pkg_bucket)
+    # Override (col 5) takes priority over Retention (col 4) if non-empty
     if 'retention_by_renewal' in _xl.sheetnames:
         ws = _xl['retention_by_renewal']
-        for row in ws.iter_rows(min_row=3):
-            pno_v  = row[0].value
-            rate_v = row[1].value
-            if pno_v is not None and rate_v is not None:
-                try:
-                    overrides['retention_by_renewal'][int(pno_v)] = float(rate_v)
-                except: pass
+        for row in ws.iter_rows(min_row=4):
+            pno_v   = row[0].value
+            ct_v    = str(row[1].value or '').strip() if len(row) > 1 else ''
+            gt_v    = str(row[2].value or '').strip() if len(row) > 2 else ''
+            pkg_v   = row[3].value                    if len(row) > 3 else None
+            rate_v  = row[4].value                    if len(row) > 4 else None
+            over_v  = row[5].value                    if len(row) > 5 else None
+            if pno_v is None:
+                continue
+            # Effective rate: override takes priority
+            eff_v = over_v if (over_v is not None and over_v != '') else rate_v
+            if eff_v is None:
+                continue
+            try:
+                pno_int = int(pno_v)
+                eff_f   = float(eff_v)
+            except Exception:
+                continue
+            # 'ALL' rows → global fallback dict keyed by pno int
+            if ct_v == 'ALL' or pkg_v is None or str(pkg_v).strip() == 'ALL':
+                overrides['retention_by_renewal'][pno_int] = eff_f
+            else:
+                # pkg-specific row
+                if ct_v in ('Base', 'MT') and gt_v in ('Private', 'Premium', 'Group'):
+                    try:
+                        pkg_int = int(float(pkg_v))
+                        overrides['retention_expanded'][(pno_int, ct_v, gt_v, pkg_int)] = eff_f
+                    except Exception:
+                        pass
 
     # shares sheet: cols Segment | Share | ...
     if 'shares' in _xl.sheetnames:
@@ -320,12 +355,13 @@ if _inp['plan_counts']:
                 PRIMARY_PLAN_COUNTS[(ct,gt)][mstr] = v
     print(f'  Loaded plan_counts from Excel → mapped to {FORECAST_MONTHS[0]}–{FORECAST_MONTHS[-1]}')
 
-_ext_curve_overrides     = _inp['ext_curve']
-_retention_overrides     = _inp['retention_by_renewal']
-_pkg_dist_overrides      = _inp['package_dist']
-_renewal_price_overrides = _inp['renewal_price']
-_shares_overrides        = _inp['shares']
-_rates_overrides         = _inp['rates']
+_ext_curve_overrides        = _inp['ext_curve']
+_retention_overrides        = _inp['retention_by_renewal']
+_retention_expanded_from_xl = _inp['retention_expanded']
+_pkg_dist_overrides         = _inp['package_dist']
+_renewal_price_overrides    = _inp['renewal_price']
+_shares_overrides           = _inp['shares']
+_rates_overrides            = _inp['rates']
 
 # Log applied settings
 if AOV_ADJ != 1.0:
@@ -373,6 +409,8 @@ def load_data():
         df['pkg'] = pd.to_numeric(df['credits_recieved_package'], errors='coerce').abs()
     else:
         df['pkg'] = np.nan
+    # pkg_bucket — round pkg to nearest PKG_BUCKETS entry
+    df['pkg_bucket'] = df['pkg'].apply(map_to_bucket)
     # payment_no
     if 'payment_no' in df.columns:
         df['payment_no'] = pd.to_numeric(df['payment_no'], errors='coerce')
@@ -745,6 +783,80 @@ if 'payment_no' in pool_df.columns:
 else:
     pool_by_pno = pd.Series(dtype=int)
 
+# pool_by_pno_pkg: expanded pool grouped by (planned_M, ct, gt, payment_no, pkg_bucket)
+if 'payment_no' in pool_df.columns and 'pkg_bucket' in pool_df.columns:
+    pool_by_pno_pkg = pool_df[
+        pool_df['payment_no'].notna() & pool_df['pkg_bucket'].notna()
+    ].groupby(
+        ['planned_M','course_type','group_type','payment_no','pkg_bucket']
+    ).size()
+else:
+    pool_by_pno_pkg = pd.Series(dtype=int)
+
+# retention_expanded: calibrated from data + any overrides from Excel
+# Keyed by (pno, ct, gt, pkg_bucket_int)
+retention_expanded: dict = {}
+
+# ── Build from on-the-fly calibration (same logic as build_forecast_inputs.py) ─
+if 'payment_no' in df.columns and df['payment_no'].notna().sum() > 100:
+    _sec_cal_exp = df[
+        df['is_sec'] &
+        df['paid_M'].astype(str).isin(CAL_WINDOW) &
+        df['segment'].notna() &
+        df['usd'].notna() &
+        df['payment_no'].notna()
+    ].copy()
+
+    # Compute prev_pkg_bucket for sec sales: pkg_bucket at payment (pno-1)
+    if 'student_id' in df.columns:
+        _pkg_lkp = (
+            df[df['payment_no'].notna() & df['pkg_bucket'].notna()]
+            [['student_id', 'payment_no', 'pkg_bucket']]
+            .rename(columns={'payment_no': '_prev_pno', 'pkg_bucket': 'prev_pkg_bucket'})
+        )
+        _sec_cal_exp['_prev_pno'] = _sec_cal_exp['payment_no'] - 1
+        _sec_cal_exp = _sec_cal_exp.merge(
+            _pkg_lkp,
+            left_on=['student_id', '_prev_pno'],
+            right_on=['student_id', '_prev_pno'],
+            how='left'
+        )
+        _sec_cal_exp.drop(columns=['_prev_pno'], inplace=True)
+    else:
+        _sec_cal_exp['prev_pkg_bucket'] = None
+
+    _pool_pno_cal_exp = pool_cal_df[
+        pool_cal_df['payment_no'].notna() & pool_cal_df['pkg_bucket'].notna()
+    ].copy()
+
+    for _pno in range(1, 16):
+        for _ct, _gt in DIMS:
+            for _pkg_b in PKG_BUCKETS:
+                _pm = (
+                    (_pool_pno_cal_exp['payment_no'] == float(_pno)) &
+                    (_pool_pno_cal_exp['course_type'] == _ct) &
+                    (_pool_pno_cal_exp['group_type']  == _gt) &
+                    (_pool_pno_cal_exp['pkg_bucket']  == _pkg_b)
+                )
+                _pn = _pm.sum()
+                if _pn >= 15:
+                    _ppb = _sec_cal_exp['prev_pkg_bucket'] if 'prev_pkg_bucket' in _sec_cal_exp.columns else pd.Series([None]*len(_sec_cal_exp), index=_sec_cal_exp.index)
+                    _sm = (
+                        (_sec_cal_exp['payment_no'] == float(_pno + 1)) &
+                        (_sec_cal_exp['course_type'] == _ct) &
+                        (_sec_cal_exp['group_type']  == _gt) &
+                        (_ppb == _pkg_b)
+                    )
+                    _sn = _sm.sum()
+                    retention_expanded[(_pno, _ct, _gt, _pkg_b)] = min(_sn / _pn, 1.0)
+
+# Apply overrides from Excel (take priority over calibrated values)
+for k, v in _retention_expanded_from_xl.items():
+    retention_expanded[k] = v
+
+if retention_expanded:
+    print(f'  retention_expanded loaded: {len(retention_expanded)} (pno,ct,gt,pkg) combinations')
+
 # pool_raw_dim: without payment_no breakdown (for blend scaling and diagnostics)
 pool_raw_dim = pool_df.groupby(['planned_M','course_type','group_type']).size()
 
@@ -772,24 +884,43 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
     mstr = str(m)
 
     if mstr in DATA_MODES['data'] or mstr in DATA_MODES['blend']:
-        # Sum over payment_no buckets using retention_by_renewal
+        # Sum over payment_no × pkg_bucket buckets using retention_expanded (with fallback)
         total_sec = 0.0
         pool_total = 0.0
         if len(pool_by_pno) > 0:
             for pno_raw in range(1, 28):
+                pno_f = float(pno_raw)
+                # Global fallback retention for this pno (Level-2 / Level-3)
+                ret_pno = (retention_by_renewal.get(pno_raw) or
+                           retention_by_renewal.get(min(pno_raw, 15), RETENTION_PNO_HIGH))
+
+                # ── Students with known pkg_bucket (use expanded retention) ──
+                n_with_pkg = 0
+                for pkg_b in PKG_BUCKETS:
+                    try:
+                        n_pkg = int(pool_by_pno_pkg.get((m, ct, gt, pno_f, float(pkg_b)), 0))
+                        if n_pkg == 0:
+                            n_pkg = int(pool_by_pno_pkg.get((m, ct, gt, pno_raw, pkg_b), 0))
+                    except Exception:
+                        n_pkg = 0
+                    if n_pkg > 0:
+                        # Fallback: Level-1 (pno,ct,gt,pkg) → Level-2/3 (pno global)
+                        ret = (retention_expanded.get((pno_raw, ct, gt, pkg_b)) or ret_pno)
+                        total_sec += n_pkg * ret * RETENTION_ADJ
+                        pool_total += n_pkg
+                        n_with_pkg += n_pkg
+
+                # ── Students with no pkg info: use global pno retention ───────
                 try:
-                    pno_f = float(pno_raw)
-                    n_pool = int(pool_by_pno.get((m, ct, gt, pno_f), 0))
-                    if n_pool == 0:
-                        n_pool = int(pool_by_pno.get((m, ct, gt, pno_raw), 0))
-                except:
-                    n_pool = 0
-                if n_pool > 0:
-                    # retention lookup with optional RETENTION_ADJ multiplier
-                    ret = retention_by_renewal.get(pno_raw,
-                          retention_by_renewal.get(min(pno_raw, 15), RETENTION_PNO_HIGH))
-                    total_sec += n_pool * ret * RETENTION_ADJ
-                    pool_total += n_pool
+                    n_total_pno = int(pool_by_pno.get((m, ct, gt, pno_f), 0))
+                    if n_total_pno == 0:
+                        n_total_pno = int(pool_by_pno.get((m, ct, gt, pno_raw), 0))
+                except Exception:
+                    n_total_pno = 0
+                n_no_pkg = max(0, n_total_pno - n_with_pkg)
+                if n_no_pkg > 0:
+                    total_sec += n_no_pkg * ret_pno * RETENTION_ADJ
+                    pool_total += n_no_pkg
         else:
             # No pno breakdown: use flat rate
             raw_pool = float(pool_raw_dim.get((m, ct, gt), 0))
