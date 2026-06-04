@@ -130,6 +130,25 @@ RATE_REANIM_DEFAULT  = {1:0.0274, 2:0.0458, 3:0.0631, 4:0.0626, 5:0.0661, 6:0.09
 # Historical segment shares (calibration baseline for three-pool scaling)
 HIST_SHARES = {'Present': 0.497, 'Earlier': 0.310, 'Reanim': 0.108, 'Upgrades': 0.085}
 
+# Pool coverage(k): какая доля pool[T] уже видна за k месяцев до T
+# Откалибровано на 2025 данных: pool[M] при cutoff = M - k месяцев
+# Формула: total_sec[T] = pool_sec[T] + (1 - coverage[k]) × ext_full[T]
+# → "база что есть — не трогаем, ext_curve добирает только недостающее"
+POOL_COVERAGE = {
+    1:  0.992,   # Jan 2026: pool почти полный, ext_curve добавляет 1%
+    2:  0.941,   # Feb: 94% → ext 6%
+    3:  0.718,   # Mar: 72% → ext 28%
+    4:  0.555,   # Apr: 56% → ext 44%
+    5:  0.429,   # May: 43% → ext 57%
+    6:  0.362,   # Jun: 36% → ext 64%
+    7:  0.313,   # Jul: ~31% (интерполяция k=6/8) → ext 69%
+    8:  0.263,   # Aug: 26% → ext 74%
+    9:  0.167,   # Sep: ~17% (интерполяция k=8/10) → ext 83%
+    10: 0.071,   # Oct: 7% → ext 93%
+    11: 0.059,   # Nov: ~6% (интерполяция k=10/12) → ext 94%
+    12: 0.046,   # Dec: 5% → ext 95%
+}
+
 # Prolongation rates (fallback)
 PROL_RATES_DEFAULT = {
     ('Base','Private'): 0.458, ('Base','Premium'): 0.365, ('Base','Group'): 0.446,
@@ -965,84 +984,79 @@ BLEND_SCALE = 1.0  # removed: was 31/28, но это давало +10% изли�
 
 def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
     """
-    Returns (total_sec, pool_display, mode).
+    ЕДИНАЯ ФОРМУЛА для всех месяцев 2026:
 
-    Jan-Apr (data mode):  three-pool formula на pool_raw_dim
-                          pool[T]×rate_present + pool[T+1]×rate_earlier + pool[T-1]×rate_reanim
-    May     (blend mode): то же
-    Jun-Dec (ext mode):   ext_curve × cohorts × EXT_SHARE_SCALE
-                          EXT_SHARE_SCALE учитывает изменение долей сегментов относительно
-                          исторических: если Earlier вырос → больше досрочников → scale > 1
+      total_sec[T] = pool_sec[T] + (1 - coverage[k]) × ext_full[T]
 
-    Segment shares влияют на N:
-      data mode: через scaling трёх ставок present/earlier/reanim
-      ext mode:  через EXT_SHARE_SCALE = weighted_rate_new / weighted_rate_hist
+    pool_sec  = three_pool(pool[T], pool[T+1], pool[T-1])  ← база — не трогаем
+    ext_full  = Σ_cohort cohort_size × ext_curve[lag]      ← полная когортная оценка
+    coverage[k] = POOL_COVERAGE.get(k) — из калибровки на 2025 данных
+    k = месяцев вперёд от data_cutoff
+
+    Jan (k=1): coverage=99% → ext добавляет 1%, pool почти всё
+    Mar (k=3): coverage=72% → ext добавляет 28%
+    Jul (k=7): coverage=31% → ext добавляет 69%
+    Dec (k=12): coverage=5% → ext добавляет 95%
     """
-    mstr = str(m)
+    k   = (m.year - DATA_CUTOFF_PERIOD.year)*12 + (m.month - DATA_CUTOFF_PERIOD.month)
+    k   = max(1, k)
+    cov = POOL_COVERAGE.get(k, POOL_COVERAGE.get(min(k, 12), 0.046))
 
-    if mstr in DATA_MODES['data'] or mstr in DATA_MODES['blend']:
-        # ── Три пула из реальных данных ──────────────────────────────────────
-        total_sec  = 0.0
-        pool_total = 0.0
-        m_plus1  = m + 1
-        m_minus1 = m - 1
+    # ── Часть 1: pool_sec из данных (три пула) ────────────────────────────────
+    pool_sec  = 0.0
+    pool_size = 0.0
+    m_plus1  = m + 1
+    m_minus1 = m - 1
 
-        if len(pool_by_pno) > 0:
-            for pno_raw in range(1, 28):
-                pno_f = float(pno_raw)
-                try:
-                    n_T   = int(pool_by_pno.get((m,        ct, gt, pno_f),  0) or
-                                pool_by_pno.get((m,        ct, gt, pno_raw), 0))
-                    n_T1  = int(pool_by_pno.get((m_plus1,  ct, gt, pno_f),  0) or
-                                pool_by_pno.get((m_plus1,  ct, gt, pno_raw), 0))
-                    n_Tm1 = int(pool_by_pno.get((m_minus1, ct, gt, pno_f),  0) or
-                                pool_by_pno.get((m_minus1, ct, gt, pno_raw), 0))
-                except Exception:
-                    n_T = n_T1 = n_Tm1 = 0
+    if len(pool_by_pno) > 0:
+        for pno_raw in range(1, 28):
+            pno_f = float(pno_raw)
+            try:
+                n_T   = int(pool_by_pno.get((m,        ct, gt, pno_f),  0) or
+                            pool_by_pno.get((m,        ct, gt, pno_raw), 0))
+                n_T1  = int(pool_by_pno.get((m_plus1,  ct, gt, pno_f),  0) or
+                            pool_by_pno.get((m_plus1,  ct, gt, pno_raw), 0))
+                n_Tm1 = int(pool_by_pno.get((m_minus1, ct, gt, pno_f),  0) or
+                            pool_by_pno.get((m_minus1, ct, gt, pno_raw), 0))
+            except Exception:
+                n_T = n_T1 = n_Tm1 = 0
 
-                rp = rate_present_3pool.get(pno_raw, rate_present_3pool.get(min(pno_raw, 15), 0.15))
-                re = rate_earlier_3pool.get(pno_raw, rate_earlier_3pool.get(min(pno_raw, 15), 0.06))
-                rr = rate_reanim_3pool.get(pno_raw,  rate_reanim_3pool.get(min(pno_raw, 15), 0.03))
+            rp = rate_present_3pool.get(pno_raw, rate_present_3pool.get(min(pno_raw, 15), 0.15))
+            re = rate_earlier_3pool.get(pno_raw, rate_earlier_3pool.get(min(pno_raw, 15), 0.06))
+            rr = rate_reanim_3pool.get(pno_raw,  rate_reanim_3pool.get(min(pno_raw, 15), 0.03))
 
-                total_sec  += n_T * rp + n_T1 * re + n_Tm1 * rr
-                pool_total += n_T
-        else:
-            raw_pool  = float(pool_raw_dim.get((m, ct, gt), 0))
-            total_sec  = raw_pool * rates.get((ct, gt), glob_rate)
-            pool_total = raw_pool
-
-        mode = 'blend' if mstr in DATA_MODES['blend'] else 'data'
-        return total_sec, pool_total, mode
-
+            pool_sec  += n_T * rp + n_T1 * re + n_Tm1 * rr
+            pool_size += n_T
     else:
-        # ── Ext mode: ext_curve × cohorts × EXT_SHARE_SCALE ─────────────────
-        # EXT_SHARE_SCALE корректирует total за изменение доли досрочников/задержавшихся.
-        # Avg rate hist = Σ_seg(hist_share × avg_rate_seg) ; аналогично для new_shares.
-        # Если Earlier↑ → больше досрочных платежей → EXT_SHARE_SCALE > 1.
-        ext_sales = 0.0
+        raw_pool = float(pool_raw_dim.get((m, ct, gt), 0))
+        pool_sec  = raw_pool * rates.get((ct, gt), glob_rate)
+        pool_size = raw_pool
 
-        # Historical cohorts
-        for C_m, sz in hist_cohort_by_dim.get((ct, gt), {}).items():
-            if C_m >= m: continue
-            lag = (m.year - C_m.year)*12 + (m.month - C_m.month)
-            if lag in ext_curve:
-                ext_sales += sz * ext_curve[lag]
+    # ── Часть 2: ext_full — полная когортная оценка ───────────────────────────
+    ext_full = 0.0
+    for C_m, sz in hist_cohort_by_dim.get((ct, gt), {}).items():
+        if C_m >= m: continue
+        lag = (m.year - C_m.year)*12 + (m.month - C_m.month)
+        if lag in ext_curve:
+            ext_full += sz * ext_curve[lag]
+    for C in plan_future_cohorts_set:
+        if C >= m: continue
+        lag = (m.year - C.year)*12 + (m.month - C.month)
+        if lag not in ext_curve: continue
+        cnt = PRIMARY_PLAN_COUNTS.get((ct, gt), {}).get(str(C))
+        if cnt:
+            ext_full += cnt * ext_curve[lag]
+    ext_full *= EXT_SHARE_SCALE
 
-        # Plan cohorts (Jun-Dec 2026)
-        for C in plan_future_cohorts_set:
-            if C >= m: continue
-            lag = (m.year - C.year)*12 + (m.month - C.month)
-            if lag not in ext_curve: continue
-            cnt = PRIMARY_PLAN_COUNTS.get((ct, gt), {}).get(str(C))
-            if cnt:
-                ext_sales += cnt * ext_curve[lag]
+    # ── Объединяем ────────────────────────────────────────────────────────────
+    total_sec = pool_sec + max(0.0, 1.0 - cov) * ext_full
 
-        # Apply EXT_SHARE_SCALE: segment shares affect N in ext mode too
-        ext_sales *= EXT_SHARE_SCALE
+    # Режим для отображения
+    mode = 'data' if cov >= 0.90 else ('data+ext' if cov >= 0.30 else 'ext')
 
-        r = rates.get((ct, gt), glob_rate)
-        pool_disp = ext_sales / r if r > 0 else ext_sales
-        return ext_sales, pool_disp, 'ext'
+    r = rates.get((ct, gt), glob_rate)
+    pool_disp = total_sec / r if r > 0 else total_sec
+    return total_sec, pool_disp, mode
 
 # Pool diagnostics
 print(f'\n-- Pool diagnostics (mode per month)')
