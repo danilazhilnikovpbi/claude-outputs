@@ -1021,7 +1021,49 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
             except Exception:
                 n_T = n_T1 = n_Tm1 = 0
 
-            rp = rate_present_3pool.get(pno_raw, rate_present_3pool.get(min(pno_raw, 15), 0.15))
+            # rate_present: THREE-POOL RATES задают абсолютный уровень,
+            # retention_expanded по pkg корректирует ОТНОСИТЕЛЬНО внутри pno/dim.
+            # retention_expanded[(pno,ct,gt,pkg)] содержит полный retention (Present+Earlier+Reanim),
+            # поэтому используем его только как масштабирующий коэффициент.
+            # Алгоритм:
+            #   1. Для (pno, ct, gt): считаем среднее retention_expanded по всем pkg (avg_dim)
+            #   2. Для каждого pkg: scale = retention_expanded[pkg] / avg_dim
+            #   3. rp_pkg = rp_base × scale — pkg=32 получает выше rp, pkg=8 ниже
+            rp_base = rate_present_3pool.get(pno_raw,
+                      rate_present_3pool.get(min(pno_raw, 15), 0.15))
+
+            if n_T > 0 and len(pool_by_pno_pkg) > 0:
+                # Средний retention_expanded для (pno, ct, gt) по всем pkg
+                pno_key = min(pno_raw, 15)
+                exp_vals = [retention_expanded.get((pno_raw, ct, gt, b)) or
+                            retention_expanded.get((pno_key,  ct, gt, b))
+                            for b in PKG_BUCKETS]
+                exp_vals = [v for v in exp_vals if v is not None and v > 0]
+                avg_dim  = float(sum(exp_vals) / len(exp_vals)) if exp_vals else 0.0
+
+                rp_num, rp_den = 0.0, 0.0
+                for pkg_b in PKG_BUCKETS:
+                    try:
+                        n_pkg = int(pool_by_pno_pkg.get((m, ct, gt, pno_f,   float(pkg_b)), 0) or
+                                    pool_by_pno_pkg.get((m, ct, gt, pno_raw,  pkg_b),        0))
+                    except Exception:
+                        n_pkg = 0
+                    if n_pkg > 0:
+                        exp_pkg = (retention_expanded.get((pno_raw, ct, gt, pkg_b)) or
+                                   retention_expanded.get((pno_key,  ct, gt, pkg_b)))
+                        if exp_pkg and avg_dim > 0:
+                            # scale = насколько этот pkg лучше/хуже среднего
+                            scale  = exp_pkg / avg_dim
+                            rp_pkg = rp_base * scale
+                        else:
+                            rp_pkg = rp_base
+                        rp_num += n_pkg * rp_pkg
+                        rp_den += n_pkg
+                rp = (rp_num / rp_den) if rp_den > 0 else rp_base
+            else:
+                rp = rp_base
+
+            # rate_earlier и rate_reanim: только THREE-POOL (нет разбивки по pkg)
             re = rate_earlier_3pool.get(pno_raw, rate_earlier_3pool.get(min(pno_raw, 15), 0.06))
             rr = rate_reanim_3pool.get(pno_raw,  rate_reanim_3pool.get(min(pno_raw, 15), 0.03))
 
