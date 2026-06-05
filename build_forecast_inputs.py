@@ -608,6 +608,42 @@ for ct, gt in DIMS:
         ppl_final[(ct, gt, pkg_sz_int)] = 7.0
         ppl_src[(ct, gt, pkg_sz_int)] = f'last resort 7.0 (n={len(sub_cal)})'
 
+# ── AOV by pno_bucket calibration ─────────────────────────────────────────────
+# Calibrate direct_aov_by_pno: (ct, gt, pno_bucket) -> mean_usd from Q4-2025
+_CAL_Q4 = ["2025-10","2025-11","2025-12"]
+
+def _pno_bucket(p):
+    if p <= 2: return 2
+    if p <= 4: return '3-4'
+    if p <= 7: return '5-7'
+    if p <= 12: return '8-12'
+    return '13+'
+
+PNO_BUCKETS_ORDER = [2, '3-4', '5-7', '8-12', '13+']
+
+sec_cal_q4 = df[
+    df['is_sec'] & df['paid_M'].astype(str).isin(_CAL_Q4) &
+    df['usd'].notna() & df['payment_no'].notna()
+].copy()
+sec_cal_q4['pno_b'] = sec_cal_q4['payment_no'].apply(_pno_bucket)
+
+_glob_q4 = sec_cal_q4['usd'].mean() if len(sec_cal_q4) > 0 else 180.0
+
+direct_aov_by_pno = {}   # (ct, gt, pno_bucket) -> mean_usd
+direct_aov_by_pno_src = {}
+for ct, gt in DIMS:
+    sub_dim = sec_cal_q4[(sec_cal_q4['course_type']==ct) & (sec_cal_q4['group_type']==gt)]
+    overall_dim = sub_dim['usd'].mean() if len(sub_dim) >= 5 else _glob_q4
+    for b in PNO_BUCKETS_ORDER:
+        sub_b = sub_dim[sub_dim['pno_b'] == b]
+        if len(sub_b) >= 10:
+            direct_aov_by_pno[(ct, gt, b)] = float(sub_b['usd'].mean())
+            direct_aov_by_pno_src[(ct, gt, b)] = f'Q4-2025 data n={len(sub_b)}'
+        else:
+            direct_aov_by_pno[(ct, gt, b)] = float(overall_dim)
+            direct_aov_by_pno_src[(ct, gt, b)] = f'dim fallback n={len(sub_b)}<10'
+
+print(f"  direct_aov_by_pno: calibrated for {len(DIMS)} dims × {len(PNO_BUCKETS_ORDER)} pno buckets")
 print(f"  Calibration complete")
 print(f"  Rates: {', '.join(f'{ct}/{gt}={rates[(ct,gt)]:.1%}' for ct,gt in DIMS)}")
 print(f"  Shares: {', '.join(f'{s}={shares[s]:.1%}' for s in SEGS)}")
@@ -1154,11 +1190,63 @@ for item in _settings:
     ws_cfg.row_dimensions[ri].height = max(14, min(60, len(desc) // 3))
     ri += 1
 
+# ─── SHEET: aov_by_pno ────────────────────────────────────────────────────────
+ws_aov = wb.create_sheet('aov_by_pno')
+ws_aov.sheet_view.showGridLines = False
+for c, w in {1:18, 2:12, 3:16, 4:16, 5:10, 6:40}.items():
+    ws_aov.column_dimensions[get_column_letter(c)].width = w
+
+wc(ws_aov, 1, 1,
+   'AOV by Dim × pno_bucket  —  Q4-2025 calibration  |  EDIT yellow Override column (col D)',
+   'navy', bold=True, align='left', size=12, span=6)
+wc(ws_aov, 2, 1,
+   'pno=2 = first renewal; 3-4 = 2nd-3rd; 5-7 = 4th-6th; 8-12 = 7th-11th; 13+ = veteran.',
+   'sub', italic=True, align='left', size=9, span=6)
+for c, h in zip(range(1, 7),
+                ['Dim', 'pno_bucket', 'AOV (calibrated)', 'Override', 'n_samples', 'Note / Source']):
+    wc(ws_aov, 3, c, h, 'dblue', bold=True, align='center', size=9)
+ws_aov.row_dimensions[1].height = 26
+ws_aov.row_dimensions[2].height = 16
+ws_aov.row_dimensions[3].height = 18
+
+_aov_pno_bg = ['lblue', 'lgreen', 'loran', 'teal2', 'sub', 'lgrey']
+row_aov = 4
+for di, (ct, gt) in enumerate(DIMS):
+    bg = _aov_pno_bg[di % len(_aov_pno_bg)]
+    for b in PNO_BUCKETS_ORDER:
+        key = (ct, gt, b)
+        aov_v = direct_aov_by_pno.get(key, _glob_q4)
+        src_v = direct_aov_by_pno_src.get(key, '')
+        # n_samples: extract from src
+        n_samp = '--'
+        if 'data n=' in src_v:
+            try:
+                n_samp = int(src_v.split('data n=')[1].split()[0])
+            except Exception:
+                pass
+        wc(ws_aov, row_aov, 1, f'{ct}/{gt}',        bg,     align='left',    size=9)
+        wc(ws_aov, row_aov, 2, str(b),               bg,     align='center',  size=9)
+        wc(ws_aov, row_aov, 3, round(aov_v, 2),      'lock', fmt='$#,##0.00', align='center')
+        wc(ws_aov, row_aov, 4, None,                 'edit', fmt='$#,##0.00', align='center')
+        wc(ws_aov, row_aov, 5,
+           n_samp if isinstance(n_samp, int) else '--',
+           bg, fmt='#,##0' if isinstance(n_samp, int) else None, align='center', size=9)
+        wc(ws_aov, row_aov, 6, src_v,               'lgrey', align='left',   size=8, italic=True)
+        ws_aov.row_dimensions[row_aov].height = 15
+        row_aov += 1
+
+wc(ws_aov, row_aov + 1, 1,
+   'Col C = calibrated from Q4-2025 data (or dim fallback if n<10). '
+   'Col D = Override: if filled, forecast_2026_v3.py uses it instead. '
+   'MT dims with thin data fall back to dim average.',
+   'sub', italic=True, align='left', size=9, span=6, wrap=True)
+ws_aov.row_dimensions[row_aov + 1].height = 30
+
 # ── Save ──────────────────────────────────────────────────────────────────────
 wb.save(OUT_INPUTS)
 print(f"\n  Saved: {OUT_INPUTS}")
 print("  Sheets: README | plan_counts | package_dist | renewal_price | "
-      "retention_by_renewal | shares | ext_curve | rates | settings")
+      "retention_by_renewal | shares | ext_curve | rates | settings | aov_by_pno")
 print("\nNext steps:")
 print("  1. Open the file, review yellow cells and adjust for your scenario")
 print("  2. Run forecast_2026_v3.py  ->  it will load your overrides automatically")
