@@ -149,16 +149,6 @@ POOL_COVERAGE = {
     12: 0.046,   # Dec: 5% → ext 95%
 }
 
-# PNO buckets for AOV calibration
-PNO_BUCKETS_ORDER = [2, '3-4', '5-7', '8-12', '13+']
-
-def _pno_to_bucket(pno):
-    if pno <= 2: return 2
-    if pno <= 4: return '3-4'
-    if pno <= 7: return '5-7'
-    if pno <= 12: return '8-12'
-    return '13+'
-
 # Prolongation rates (fallback)
 PROL_RATES_DEFAULT = {
     ('Base','Private'): 0.458, ('Base','Premium'): 0.365, ('Base','Group'): 0.446,
@@ -874,73 +864,6 @@ for ct, gt in DIMS:
     print(f'  {ct}/{gt}: ' + '  '.join(f'{seg}=${direct_aov_base[(ct,gt,seg)]:.0f}' for seg in SEGS))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CALIBRATION 4b: DIRECT AOV BY PNO BUCKET
-# pno=2 (first renewal) has highest AOV; it declines with each pno bucket.
-# direct_aov_by_pno: (ct, gt, pno_bucket) -> mean_usd (Q4-2025)
-# ══════════════════════════════════════════════════════════════════════════════
-DIRECT_AOV_BY_PNO_DEFAULT = {
-    ('Base','Group',    2):    161.0, ('Base','Group',   '3-4'): 152.0,
-    ('Base','Group',   '5-7'): 115.0, ('Base','Group',   '8-12'):  82.0, ('Base','Group',   '13+'):  63.0,
-    ('Base','Premium',  2):    184.0, ('Base','Premium', '3-4'): 147.0,
-    ('Base','Premium', '5-7'): 124.0, ('Base','Premium', '8-12'): 130.0, ('Base','Premium', '13+'):  90.0,
-    ('Base','Private',  2):    303.0, ('Base','Private', '3-4'): 299.0,
-    ('Base','Private', '5-7'): 227.0, ('Base','Private', '8-12'): 156.0, ('Base','Private', '13+'):  84.0,
-    ('MT',  'Private',  2):    285.0, ('MT',  'Private', '3-4'): 239.0,
-    ('MT',  'Private', '5-7'): 250.0, ('MT',  'Private', '8-12'): 200.0, ('MT',  'Private', '13+'): 150.0,
-}
-
-# Start with hardcoded defaults, then calibrate from Q4-2025 data
-direct_aov_by_pno = dict(DIRECT_AOV_BY_PNO_DEFAULT)
-
-# Calibrate from Q4 data where sufficient
-if len(sec_q4_all) > 0 and 'payment_no' in sec_q4_all.columns:
-    sec_q4_pno = sec_q4_all[sec_q4_all['payment_no'].notna()].copy()
-    sec_q4_pno['pno_b'] = sec_q4_pno['payment_no'].apply(_pno_to_bucket)
-    for ct, gt in DIMS:
-        sub_dim = sec_q4_pno[(sec_q4_pno['course_type']==ct) & (sec_q4_pno['group_type']==gt)]
-        overall_dim = sub_dim['usd'].mean() if len(sub_dim) >= 5 else _glob_q4
-        for b in PNO_BUCKETS_ORDER:
-            sub_b = sub_dim[sub_dim['pno_b'] == b]
-            if len(sub_b) >= 10:
-                direct_aov_by_pno[(ct, gt, b)] = float(sub_b['usd'].mean())
-
-# Fill in missing dims (MT/Premium, MT/Group) using Base counterpart as fallback
-for ct, gt in DIMS:
-    for b in PNO_BUCKETS_ORDER:
-        if (ct, gt, b) not in direct_aov_by_pno:
-            # Fallback: use Base/Group values
-            direct_aov_by_pno[(ct, gt, b)] = direct_aov_by_pno.get(
-                ('Base', 'Group', b), _glob_q4)
-
-# Read overrides from Excel 'aov_by_pno' sheet
-if _os.path.exists(INPUTS_EXCEL):
-    try:
-        _xl_aov = __import__('openpyxl').load_workbook(INPUTS_EXCEL, data_only=True)
-        if 'aov_by_pno' in _xl_aov.sheetnames:
-            for row in _xl_aov['aov_by_pno'].iter_rows(min_row=4):
-                dim_v    = row[0].value
-                pno_b_v  = row[1].value
-                override_v = row[3].value   # col D = Override
-                if dim_v and pno_b_v is not None and override_v is not None:
-                    for ct, gt in DIMS:
-                        if str(dim_v).strip() == f'{ct}/{gt}':
-                            try:
-                                pno_b_str = str(pno_b_v).strip()
-                                b_key = int(pno_b_str) if pno_b_str == '2' else pno_b_str
-                                direct_aov_by_pno[(ct, gt, b_key)] = float(override_v)
-                            except Exception:
-                                pass
-        _xl_aov.close()
-    except Exception:
-        pass
-
-print(f'\n-- Direct AOV by pno_bucket (Q4-2025 calibrated):')
-for ct, gt in [('Base','Group'), ('Base','Private'), ('Base','Premium')]:
-    vals = '  '.join(f'pno{b}=${direct_aov_by_pno.get((ct,gt,b),0):.0f}' for b in PNO_BUCKETS_ORDER)
-    print(f'  {ct}/{gt}: {vals}')
-print(f'  direct_aov_by_pno: {len(direct_aov_by_pno)} entries ({len(DIMS)} dims × {len(PNO_BUCKETS_ORDER)} buckets)')
-
-# ══════════════════════════════════════════════════════════════════════════════
 # PRICE GROWTH FACTOR
 # ══════════════════════════════════════════════════════════════════════════════
 def _quarter_index(year: int, month: int) -> float:
@@ -1098,49 +1021,7 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
             except Exception:
                 n_T = n_T1 = n_Tm1 = 0
 
-            # rate_present: THREE-POOL RATES задают абсолютный уровень,
-            # retention_expanded по pkg корректирует ОТНОСИТЕЛЬНО внутри pno/dim.
-            # retention_expanded[(pno,ct,gt,pkg)] содержит полный retention (Present+Earlier+Reanim),
-            # поэтому используем его только как масштабирующий коэффициент.
-            # Алгоритм:
-            #   1. Для (pno, ct, gt): считаем среднее retention_expanded по всем pkg (avg_dim)
-            #   2. Для каждого pkg: scale = retention_expanded[pkg] / avg_dim
-            #   3. rp_pkg = rp_base × scale — pkg=32 получает выше rp, pkg=8 ниже
-            rp_base = rate_present_3pool.get(pno_raw,
-                      rate_present_3pool.get(min(pno_raw, 15), 0.15))
-
-            if n_T > 0 and len(pool_by_pno_pkg) > 0:
-                # Средний retention_expanded для (pno, ct, gt) по всем pkg
-                pno_key = min(pno_raw, 15)
-                exp_vals = [retention_expanded.get((pno_raw, ct, gt, b)) or
-                            retention_expanded.get((pno_key,  ct, gt, b))
-                            for b in PKG_BUCKETS]
-                exp_vals = [v for v in exp_vals if v is not None and v > 0]
-                avg_dim  = float(sum(exp_vals) / len(exp_vals)) if exp_vals else 0.0
-
-                rp_num, rp_den = 0.0, 0.0
-                for pkg_b in PKG_BUCKETS:
-                    try:
-                        n_pkg = int(pool_by_pno_pkg.get((m, ct, gt, pno_f,   float(pkg_b)), 0) or
-                                    pool_by_pno_pkg.get((m, ct, gt, pno_raw,  pkg_b),        0))
-                    except Exception:
-                        n_pkg = 0
-                    if n_pkg > 0:
-                        exp_pkg = (retention_expanded.get((pno_raw, ct, gt, pkg_b)) or
-                                   retention_expanded.get((pno_key,  ct, gt, pkg_b)))
-                        if exp_pkg and avg_dim > 0:
-                            # scale = насколько этот pkg лучше/хуже среднего
-                            scale  = exp_pkg / avg_dim
-                            rp_pkg = rp_base * scale
-                        else:
-                            rp_pkg = rp_base
-                        rp_num += n_pkg * rp_pkg
-                        rp_den += n_pkg
-                rp = (rp_num / rp_den) if rp_den > 0 else rp_base
-            else:
-                rp = rp_base
-
-            # rate_earlier и rate_reanim: только THREE-POOL (нет разбивки по pkg)
+            rp = rate_present_3pool.get(pno_raw, rate_present_3pool.get(min(pno_raw, 15), 0.15))
             re = rate_earlier_3pool.get(pno_raw, rate_earlier_3pool.get(min(pno_raw, 15), 0.06))
             rr = rate_reanim_3pool.get(pno_raw,  rate_reanim_3pool.get(min(pno_raw, 15), 0.03))
 
@@ -1151,38 +1032,31 @@ def get_total_sec(m: pd.Period, ct: str, gt: str) -> tuple:
         pool_sec  = raw_pool * rates.get((ct, gt), glob_rate)
         pool_size = raw_pool
 
-    # ── Часть 2: ext_full — разделяем на исторические и план-когорты ────────────
-    # ext_hist: исторические когорты (до data_cutoff) — их AOV = средний Q4 (multi-pno)
-    # ext_plan: новые план-когорты (Jun-Dec 2026) — первые продления, pno=2 AOV
-    ext_hist = 0.0
+    # ── Часть 2: ext_full — полная когортная оценка ───────────────────────────
+    ext_full = 0.0
     for C_m, sz in hist_cohort_by_dim.get((ct, gt), {}).items():
         if C_m >= m: continue
         lag = (m.year - C_m.year)*12 + (m.month - C_m.month)
         if lag in ext_curve:
-            ext_hist += sz * ext_curve[lag]
-    ext_plan = 0.0
+            ext_full += sz * ext_curve[lag]
     for C in plan_future_cohorts_set:
         if C >= m: continue
         lag = (m.year - C.year)*12 + (m.month - C.month)
         if lag not in ext_curve: continue
         cnt = PRIMARY_PLAN_COUNTS.get((ct, gt), {}).get(str(C))
         if cnt:
-            ext_plan += cnt * ext_curve[lag]
-    ext_full = (ext_hist + ext_plan) * EXT_SHARE_SCALE
-    # Пропорции для AOV-расчёта
-    ext_plan_frac = ext_plan / (ext_hist + ext_plan) if (ext_hist + ext_plan) > 0 else 0.0
+            ext_full += cnt * ext_curve[lag]
+    ext_full *= EXT_SHARE_SCALE
 
     # ── Объединяем ────────────────────────────────────────────────────────────
-    ext_gap        = max(0.0, 1.0 - cov) * ext_full
-    ext_gap_plan   = ext_gap * ext_plan_frac    # часть ext от план-когорт (pno=2 AOV)
-    ext_gap_hist   = ext_gap * (1 - ext_plan_frac)  # часть от исторических (avg AOV)
-    total_sec = pool_sec + ext_gap
+    total_sec = pool_sec + max(0.0, 1.0 - cov) * ext_full
 
+    # Режим для отображения
     mode = 'data' if cov >= 0.90 else ('data+ext' if cov >= 0.30 else 'ext')
 
     r = rates.get((ct, gt), glob_rate)
     pool_disp = total_sec / r if r > 0 else total_sec
-    return pool_sec, ext_gap_hist, ext_gap_plan, pool_disp, mode
+    return total_sec, pool_disp, mode
 
 # Pool diagnostics
 print(f'\n-- Pool diagnostics (mode per month)')
@@ -1191,9 +1065,9 @@ print('  ' + '-' * 90)
 for mstr in FORECAST_MONTHS:
     m_p = pd.Period(mstr)
     results  = [get_total_sec(m_p, ct, gt) for ct, gt in DIMS]
-    # get_total_sec returns (pool_sec, ext_gap_hist, ext_gap_plan, pool_disp, mode)
-    totals   = [r[0] + r[1] + r[2] for r in results]   # pool + ext_hist + ext_plan
-    modes    = [r[4] for r in results]
+    totals   = [r[0] for r in results]
+    pools    = [r[1] for r in results]
+    modes    = [r[2] for r in results]
     mode_set = set(modes)
     mode_tag = modes[0] if len(mode_set) == 1 else 'mixed'
     print(f'  {mstr:<10}  ' +
@@ -1205,65 +1079,27 @@ for mstr in FORECAST_MONTHS:
 # Замена pkg×ppl подхода: берём прямой средний чек из данных Q4-2025
 # Это точнее т.к. захватывает реальный mix пакетов без упущений
 # ══════════════════════════════════════════════════════════════════════════════
-def calc_dim_revenue(pool_sec: float, ext_hist: float, ext_plan: float,
-                     ct: str, gt: str, mstr: str, m: pd.Period) -> dict:
+def calc_dim_revenue(total_sec: float, ct: str, gt: str, mstr: str) -> dict:
     """
-    Три компонента с разными AOV:
-      pool_sec:  из реального пула → pno-взвешенный AOV (из pool_by_pno)
-      ext_hist:  из исторических когорт (multi-pno) → direct_aov_base (Q4 среднее)
-      ext_plan:  из план-когорт Jun-Dec 2026 (первые продления) → pno=2 AOV
-
-    Revenue = Σ_seg seg_count × combined_aov × pgf × aov_adj
+    Revenue = Σ_seg (total_sec × share[seg] × direct_aov_base[(ct,gt,seg)] × pgf × aov_adj)
+    direct_aov_base = mean USD per secondary sale in Q4-2025, per dim×seg
+    pgf = price_growth_factor(mstr): +3%/quarter from Q4-2025 base
     """
-    pgf       = price_growth_factor(mstr)
-    total_sec = pool_sec + ext_hist + ext_plan
+    pgf        = price_growth_factor(mstr)
     rev_by_seg = {}
     n_by_seg   = {}
 
-    # AOV для pool: взвешиваем по pno из pool_by_pno
-    pool_aov_num, pool_aov_den = 0.0, 0.0
-    if len(pool_by_pno) > 0:
-        for pno_raw in range(2, 20):
-            pno_f = float(pno_raw)
-            try:
-                n_pno = int(pool_by_pno.get((m, ct, gt, pno_f),  0) or
-                            pool_by_pno.get((m, ct, gt, pno_raw), 0))
-            except Exception:
-                n_pno = 0
-            if n_pno > 0:
-                b     = _pno_to_bucket(pno_raw)
-                aov_b = direct_aov_by_pno.get((ct, gt, b), _glob_q4)
-                pool_aov_num += n_pno * aov_b
-                pool_aov_den += n_pno
-    pool_aov = (pool_aov_num / pool_aov_den) if pool_aov_den > 0 else None
-
-    # AOV для план-когорт: pno=2 (первое продление)
-    ext_plan_aov = direct_aov_by_pno.get((ct, gt, 2), _glob_q4)
-
     for seg in SEGS:
-        seg_sec         = total_sec * shares[seg]
-        seg_fallback    = direct_aov_base.get((ct, gt, seg), _glob_q4)  # Q4 avg, segment-specific
-        pool_aov_seg    = pool_aov if pool_aov is not None else seg_fallback
-        ext_hist_aov    = seg_fallback  # исторические когорты → Q4 avg как раньше
-        ext_plan_aov_s  = ext_plan_aov  # план-когорты → pno=2
-
-        if total_sec > 0:
-            combined_aov = (
-                (pool_sec  / total_sec) * pool_aov_seg +
-                (ext_hist  / total_sec) * ext_hist_aov +
-                (ext_plan  / total_sec) * ext_plan_aov_s
-            )
-        else:
-            combined_aov = seg_fallback
-
-        seg_rev = seg_sec * combined_aov * pgf * AOV_ADJ
+        seg_sec = total_sec * shares[seg]
+        aov_v   = direct_aov_base.get((ct, gt, seg), _glob_q4)
+        seg_rev = seg_sec * aov_v * pgf * AOV_ADJ
         rev_by_seg[seg] = seg_rev
         n_by_seg[seg]   = seg_sec
 
     total_rev = sum(rev_by_seg.values())
     aov       = total_rev / total_sec if total_sec > 0 else 0.0
     return {
-        'total_rev':  total_rev,
+        'total_rev': total_rev,
         'rev_by_seg': rev_by_seg,
         'n_by_seg':   n_by_seg,
         'aov':        aov,
@@ -1287,10 +1123,8 @@ for mstr in FORECAST_MONTHS:
     month_sec  = 0.0
 
     for ct, gt in DIMS:
-        pool_sec, ext_hist, ext_plan, pool_disp, mode = get_total_sec(m_p, ct, gt)
-        total_sec = pool_sec + ext_hist + ext_plan
-        # calc_dim_revenue: pool → pno-weighted AOV; ext_hist → Q4 avg AOV; ext_plan → pno=2 AOV
-        rev_info = calc_dim_revenue(pool_sec, ext_hist, ext_plan, ct, gt, mstr, m_p)
+        total_sec, pool_disp, mode = get_total_sec(m_p, ct, gt)
+        rev_info = calc_dim_revenue(total_sec, ct, gt, mstr)
         dim_month_data[(mstr, ct, gt)] = {
             'total_sec': total_sec,
             'pool_disp': pool_disp,
