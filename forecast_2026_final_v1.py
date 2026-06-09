@@ -1093,6 +1093,7 @@ print('  ' + '-' * 72)
 # Use ext mode (cohort-based): captures seasonal patterns better than pool-mode
 # for months outside forecast_start window.
 # Dec due to year-end seasonality; ext_curve implicitly captures it.
+q4_validation_rows = []
 for _mstr in ['2025-10', '2025-11', '2025-12']:
     _mp     = pd.Period(_mstr, 'M')
     _pred_n = 0.0
@@ -1113,6 +1114,11 @@ for _mstr in ['2025-10', '2025-11', '2025-12']:
     _er_s = f'{_er:+.1f}%' if _er is not None else 'n/a'
     print(f'  {_mstr}     {_pred_n:>7.1f}  {_act_n:>7,}  {_en_s:>6}  '
           f'${_pred_rev:>9,.0f}  ${_act_rev:>9,.0f}  {_er_s:>7}  [ext]')
+    q4_validation_rows.append({
+        'mstr': _mstr, 'pred_n': _pred_n, 'pred_rev': _pred_rev,
+        'act_n': _act_n, 'act_rev': _act_rev,
+        'err_n': _en, 'err_rev': _er,
+    })
 
 # ══════════════════════════════════════════════════════════════════════════════
 # EXCEL OUTPUT
@@ -1205,6 +1211,40 @@ tot_vals = [
 for c, (v, bg, fmt) in enumerate(tot_vals, 1):
     wc(ws1, tr, c, v, bg, bold=True, fmt=fmt, align='center' if c == 1 else 'right')
 ws1.row_dimensions[tr].height = 22
+
+# ── Q4-2025 Validation section (below TOTAL row) ──────────────────────────────
+_q4r = tr + 2   # blank gap of 1 row
+# Section header
+wc(ws1, _q4r, 1, 'Q4-2025 VALIDATION  (pool cutoff=2025-09-30, rates=Jul-Dec 2025)',
+   'sub', bold=True, align='left', size=9, span=8)
+ws1.row_dimensions[_q4r].height = 16
+_q4r += 1
+# Column headers (same as main table)
+for c, (h, bg) in enumerate(hdrs, 1):
+    wc(ws1, _q4r, c, h, 'sub', bold=True, align='center', size=9)
+ws1.row_dimensions[_q4r].height = 14
+_q4r += 1
+# Data rows
+for _row in q4_validation_rows:
+    _has_err_n = _row['err_n'] is not None
+    _err_bg = 'lgreen' if (_row['err_n'] or 0) < 0 else (
+              'lpink' if abs(_row['err_n'] or 0) > 5 else 'lgrey')
+    _vals = [
+        (_row['mstr'],              'lgrey',  None),
+        (_row['pred_rev'],          'lblue',  USD),
+        (round(_row['pred_n'], 1),  'lblue',  '#,##0.0'),
+        (_row['act_rev'] / _row['act_n'] if _row['act_n'] else 0, 'lblue', '$#,##0.0'),
+        (_row['act_rev'],           'gold',   USD),
+        (_row['err_rev'] / 100 if _row['err_rev'] is not None else '--',
+         _err_bg if _has_err_n else 'lgrey',
+         DIFF if _has_err_n else None),
+        (_row['act_n'],             'gold',   '#,##0'),
+        ('ext',                     'sub',    None),
+    ]
+    for c, (v, bg, fmt) in enumerate(_vals, 1):
+        wc(ws1, _q4r, c, v, bg, fmt=fmt, align='center' if c in (1, 8) else 'right')
+    ws1.row_dimensions[_q4r].height = 15
+    _q4r += 1
 
 # ── SHEET 2: Dim Breakdown ────────────────────────────────────────────────────
 ws2 = wb.create_sheet('Dim Breakdown')
