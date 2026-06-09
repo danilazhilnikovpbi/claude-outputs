@@ -31,10 +31,9 @@ from openpyxl.utils import get_column_letter
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_PATH = (
-    r"C:\Users\danil\Downloads\Telegram Desktop"
-    r"\prolongation_test_2026-05-26\prolongation_test_2026-05-26.csv"
+    r"C:\Users\danil\AppData\Local\Temp\prolongation_test_2026-06-08.csv"
 )
-DATA_CUTOFF_STR = "2026-05-28"
+DATA_CUTOFF_STR = "2026-06-07"
 OUT_INPUTS = (
     r"C:\Users\danil\Desktop\Financial Model Project"
     r"\secondary context\forecast_inputs_2026.xlsx"
