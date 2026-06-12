@@ -38,7 +38,7 @@ from openpyxl.utils import get_column_letter
 # ══════════════════════════════════════════════════════════════════════════════
 # [A] CONFIG
 # ══════════════════════════════════════════════════════════════════════════════
-DATA_PATH = r"C:\Users\danil\AppData\Local\Temp\prolongation_test_2026-06-08.csv"
+DATA_PATH = r"C:\Users\danil\Desktop\Financial Model Project\secondary context\prolongation_test_2026-06-08.csv"
 DATA_CUTOFF_STR  = "2026-06-07"
 CAL_WINDOW       = ["2025-07","2025-08","2025-09","2025-10","2025-11","2025-12"]
 # Q4 2025 = base period for price growth (Oct-Nov-Dec 2025)
@@ -487,13 +487,14 @@ hist_cohort_by_dim: dict = {}
 for (cm, ct_, gt_), sz in _hist_cohort_series.items():
     hist_cohort_by_dim.setdefault((ct_, gt_), {})[cm] = int(sz)
 
-# ── Плановые когорты — динамически от data_cutoff+1 до конца прогноза ─────────
-# PLAN_COHORT_START автоматически = data_cutoff + 1 месяц
+# ── Плановые когорты — от текущего (неполного) месяца до конца прогноза ───────
+# PLAN_COHORT_START = data_cutoff месяц (включительно): текущий месяц в CSV неполный,
+# поэтому первичные продажи за него берутся из plan_counts, не из CSV.
 # Значения берутся из PRIMARY_PLAN_COUNTS (лист plan_counts в Excel)
 _cutoff_period  = pd.Period(DATA_CUTOFF_STR[:7])
 _forecast_end_p = pd.Period(FORECAST_MONTHS[-1])
 
-PLAN_COHORT_START = str(_cutoff_period + 1)
+PLAN_COHORT_START = str(_cutoff_period)  # = data_cutoff month (Jun 2026)
 plan_future_cohorts_set = set(pd.period_range(PLAN_COHORT_START,
                                                str(_forecast_end_p), freq='M'))
 print(f'Plan cohorts range: {PLAN_COHORT_START} → {str(_forecast_end_p)} '
